@@ -1,5 +1,4 @@
-<script>
-  !(function () {
+!(function () {
     'use strict';
     const WEBHOOK_URL = 'https://hook.eu2.make.com/awlgw75udlsuft5mf6gpn1f5s1i9tgxb',
       TOTAL_STEPS = 8,
@@ -1104,4 +1103,3 @@
     }
     'loading' === document.readyState ? document.addEventListener('DOMContentLoaded', init) : init();
   })();
-</script>
