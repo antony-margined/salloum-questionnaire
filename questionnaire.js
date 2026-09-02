@@ -330,6 +330,7 @@
         injectAllUploads(),
         injectAllEidUploads(),
         wireEidUploadListeners(),
+        rebuildPersonDropdowns(),
         updateShareTotal(),
         window.scrollTo({ top: 0, behavior: 'smooth' }),
         window._sw_init_done && saveDraft());
@@ -730,7 +731,7 @@
         ['muslim-only-b', 'marriage-civil-b', 'has-prior-will-b', 'scope-except-b', 'disposition-other-b', 'location-yes-b', 'directions-yes-b', 'additional-yes-b'].forEach((c) => {
           showHide('[data-conditional="' + c + '"]', !1);
         });
-      (updateAddButtonStates(), updateShareTotal(), injectAllUploads());
+      (updateAddButtonStates(), updateShareTotal(), injectAllUploads(), rebuildPersonDropdowns());
     }
     function showHide(selector, condition) {
       $$(selector).forEach((el) => {
@@ -770,6 +771,7 @@
           (input.name && (input.name = input.name.replace(/_\d+_/, '_' + newIndex + '_').replace(/_\d+$/, '_' + newIndex)), 'radio' === input.type || 'checkbox' === input.type ? (input.checked = !1) : (input.value = ''), input.classList.remove('sw-q-invalid'), input.dataset && (delete input.dataset.swPopulated, delete input.dataset.swEidWired));
         }),
         $$('.sw-q-upload-field', clone).forEach((u) => u.remove()),
+        $$('.sw-q-person-picker', clone).forEach((u) => u.remove()),
         $$('.sw-q-radio-row', clone).forEach((r) => r.classList.remove('sw-q-radio-checked', 'sw-q-invalid')),
         $$('.sw-q-field-error', clone).forEach((e) => e.remove()),
         !$('.sw-q-block-remove', clone))
@@ -872,8 +874,9 @@
         (data._step && showStep(data._step),
           updateRadioStates(),
           applyConditionals(),
+          rebuildPersonDropdowns(),
           requestAnimationFrame(() => {
-            (applyConditionals(), saveDraft());
+            (applyConditionals(), rebuildPersonDropdowns(), saveDraft());
           }));
       });
     }
@@ -981,6 +984,219 @@
       }
       if (!submitOk) return (next && ((next.disabled = !1), (next.textContent = 'Submit »')), void showErrorBanner("Couldn't send (" + ((lastErr && lastErr.message) || '?') + '). Ref: ' + cid));
       (clearDraft(), (window.location.href = '/wills-services/questionnaire-complete?case_id=' + encodeURIComponent(cid)));
+    }
+    /* ============================================================
+       PERSON AUTO-POPULATE FEATURE (additive)
+       Lets a user reuse a person entered elsewhere in the form.
+       Reads people from every person-holder, builds a dropdown on
+       each person-APPOINTING block/section, and copies identity
+       fields on selection. Copy-on-select only (no locking/sync).
+       ============================================================ */
+    // Canonical identity attribute order (source of truth for copy).
+    var SW_PERSON_ATTRS = ['full_name', 'relationship', 'nationality', 'dob', 'pob', 'passport', 'emirates_id'];
+    // Read a single field value by name (trimmed). Uses existing $ helper.
+    function swFieldVal(name) {
+      var el = $('[name="' + name + '"]');
+      return el && 'file' !== el.type ? (el.value || '').trim() : '';
+    }
+    // Build one canonical person object from a set of field names.
+    // fieldNames maps attr -> field name (or null when the role lacks it).
+    function swReadPerson(fieldNames, source) {
+      var p = { source: source };
+      SW_PERSON_ATTRS.forEach(function (a) {
+        p[a] = fieldNames[a] ? swFieldVal(fieldNames[a]) : '';
+      });
+      return p;
+    }
+    // Dedup key: full_name (lower/trim) + '|' + passport (upper/trim).
+    function swPersonKey(p) {
+      return (p.full_name || '').trim().toLowerCase() + '|' + (p.passport || '').trim().toUpperCase();
+    }
+    // Field-name builders per role/prefix.
+    function swBlockFields(prefix, n) {
+      // prefix e.g. 'executor', 'executor_b', 'sub_executor', 'primary_ben', 'secondary_ben'
+      var base = prefix + '_' + n + '_';
+      return { full_name: base + 'full_name', relationship: base + 'relationship', nationality: base + 'nationality', dob: base + 'dob', pob: base + 'pob', passport: base + 'passport', emirates_id: base + 'emirates_id' };
+    }
+    function swChildFields(n) {
+      // Children have NO relationship, NO pob.
+      var base = 'child_' + n + '_';
+      return { full_name: base + 'full_name', relationship: null, nationality: base + 'nationality', dob: base + 'dob', pob: null, passport: base + 'passport', emirates_id: base + 'emirates_id' };
+    }
+    function swGuardianFields(prefix) {
+      // prefix e.g. 'perm_guardian', 'sub_perm', 'interim', 'sub_interim'
+      return { full_name: prefix + '_full_name', relationship: prefix + '_relationship', nationality: prefix + '_nationality', dob: prefix + '_dob', pob: prefix + '_pob', passport: prefix + '_passport', emirates_id: prefix + '_emirates_id' };
+    }
+    function swTestatorFields(suffix) {
+      // Testators have NO relationship. pob = q4_pob. suffix '' or '_b'.
+      return { full_name: 'q1_full_name' + suffix, relationship: null, nationality: 'q2_nationality' + suffix, dob: 'q3_dob' + suffix, pob: 'q4_pob' + suffix, passport: 'q5_passport' + suffix, emirates_id: 'q6_emirates_id' + suffix };
+    }
+    // Count how many blocks of a given hyphenated data-block type exist.
+    function swBlockIndices(dataBlock) {
+      var list = $('[data-block-list="' + dataBlock + '"]');
+      var blocks = list ? $$('[data-block="' + dataBlock + '"]', list) : $$('[data-block="' + dataBlock + '"]');
+      return blocks.map(function (b, i) {
+        return b.dataset.blockIndex || String(i + 1);
+      });
+    }
+    // Build the person registry from the whole form.
+    function buildPersonRegistry() {
+      var people = [];
+      // Testators
+      people.push(swReadPerson(swTestatorFields(''), 'Testator A'));
+      if (isCouplesMode()) people.push(swReadPerson(swTestatorFields('_b'), 'Testator B'));
+      // Repeatable person blocks (hyphenated data-block, underscored field prefix)
+      var blockSpecs = [
+        { db: 'executor', prefix: 'executor', label: 'Executor' },
+        { db: 'executor-b', prefix: 'executor_b', label: 'Executor (B)' },
+        { db: 'sub-executor', prefix: 'sub_executor', label: 'Substitute executor' },
+        { db: 'primary-beneficiary', prefix: 'primary_ben', label: 'Beneficiary' },
+        { db: 'secondary-beneficiary', prefix: 'secondary_ben', label: 'Secondary beneficiary' },
+      ];
+      blockSpecs.forEach(function (spec) {
+        swBlockIndices(spec.db).forEach(function (idx) {
+          people.push(swReadPerson(swBlockFields(spec.prefix, idx), spec.label + ' ' + idx));
+        });
+      });
+      // Children (a source of people, per firm decision)
+      swBlockIndices('child').forEach(function (idx) {
+        people.push(swReadPerson(swChildFields(idx), 'Child ' + idx));
+      });
+      // Fixed guardian sections
+      var guardianSpecs = [
+        { prefix: 'perm_guardian', label: 'Permanent guardian' },
+        { prefix: 'sub_perm', label: 'Substitute permanent guardian' },
+        { prefix: 'interim', label: 'Interim guardian' },
+        { prefix: 'sub_interim', label: 'Substitute interim guardian' },
+      ];
+      guardianSpecs.forEach(function (spec) {
+        people.push(swReadPerson(swGuardianFields(spec.prefix), spec.label));
+      });
+      // Keep only people with a name OR passport; dedup by key.
+      var seen = {},
+        out = [];
+      people.forEach(function (p) {
+        if (!(p.full_name || p.passport)) return;
+        var key = swPersonKey(p);
+        if (seen[key]) return;
+        seen[key] = !0;
+        out.push(p);
+      });
+      return out;
+    }
+    // Set one target field from a value, firing input+change so existing
+    // listeners (validation, draft save, EID upload injection) run.
+    function swSetField(name, value) {
+      var el = $('[name="' + name + '"]');
+      if (!el || 'file' === el.type) return;
+      el.value = null == value ? '' : value;
+      try {
+        el.dispatchEvent(new Event('input', { bubbles: !0 }));
+      } catch (e) {}
+      try {
+        el.dispatchEvent(new Event('change', { bubbles: !0 }));
+      } catch (e) {}
+    }
+    // Resolve a target field mapping. `fields` may be a plain object
+    // (fixed roles like guardians) or a function returning one, evaluated
+    // at call time so block indices stay correct after add/remove/renumber.
+    function swResolveFields(fields) {
+      return 'function' == typeof fields ? fields() : fields;
+    }
+    // Copy a canonical person's attributes into a target role's fields.
+    function swPopulateTarget(fields, person) {
+      var fieldNames = swResolveFields(fields);
+      if (!fieldNames) return;
+      SW_PERSON_ATTRS.forEach(function (a) {
+        if (!fieldNames[a]) return; // target lacks this field
+        swSetField(fieldNames[a], person ? person[a] || '' : '');
+      });
+    }
+    // Handle a dropdown selection: populate from registry or clear.
+    function swOnPersonSelect(sel, fields) {
+      var idx = sel.value;
+      if ('' === idx) {
+        swPopulateTarget(fields, null); // clear for fresh entry
+        return;
+      }
+      var registry = buildPersonRegistry();
+      var person = registry[parseInt(idx, 10)];
+      if (!person) return;
+      swPopulateTarget(fields, person);
+    }
+    // Build/refresh the <option> list of a dropdown from the registry.
+    function swFillDropdownOptions(sel) {
+      var registry = buildPersonRegistry();
+      var prev = sel.value;
+      sel.innerHTML = '';
+      var first = document.createElement('option');
+      ((first.value = ''), (first.textContent = '— Enter a new person —'));
+      sel.appendChild(first);
+      registry.forEach(function (p, i) {
+        var o = document.createElement('option');
+        ((o.value = String(i)), (o.textContent = (p.full_name || '(no name)') + ' — ' + p.source));
+        sel.appendChild(o);
+      });
+      // Preserve prior selection index if still valid; else reset to new.
+      sel.value = prev && sel.querySelector('option[value="' + prev + '"]') ? prev : '';
+    }
+    // Inject (once) a dropdown at the top of a container, or refresh it.
+    // container: the element to prepend into. fields: target mapping or
+    // a function returning it (resolved at select time).
+    function swInjectDropdown(container, fields, anchorBefore) {
+      if (!container) return;
+      var existing = container.querySelector(':scope > .sw-q-person-picker');
+      if (existing) {
+        var s = existing.querySelector('select');
+        if (s) swFillDropdownOptions(s);
+        return;
+      }
+      var wrap = document.createElement('div');
+      wrap.className = 'sw-q-field sw-q-person-picker';
+      var label = document.createElement('div');
+      ((label.className = 'sw-q-label'), (label.textContent = 'Reuse a person already entered'));
+      var sel = document.createElement('select');
+      sel.className = 'sw-q-input';
+      sel.addEventListener('change', function () {
+        swOnPersonSelect(sel, fields);
+      });
+      (wrap.appendChild(label), wrap.appendChild(sel), swFillDropdownOptions(sel));
+      if (anchorBefore && anchorBefore.parentNode === container) container.insertBefore(wrap, anchorBefore);
+      else container.insertBefore(wrap, container.firstChild);
+    }
+    // Rebuild registry + inject/refresh all appointing dropdowns.
+    // Appointing targets: executors, sub-executors, beneficiaries, and
+    // the four guardian sections. NOT children (source only).
+    function rebuildPersonDropdowns() {
+      // Repeatable appointing blocks.
+      var appointSpecs = [
+        { db: 'executor', prefix: 'executor' },
+        { db: 'executor-b', prefix: 'executor_b' },
+        { db: 'sub-executor', prefix: 'sub_executor' },
+        { db: 'primary-beneficiary', prefix: 'primary_ben' },
+        { db: 'secondary-beneficiary', prefix: 'secondary_ben' },
+      ];
+      appointSpecs.forEach(function (spec) {
+        $$('[data-block="' + spec.db + '"]').forEach(function (block) {
+          // Resolve field names lazily from the block's LIVE index so the
+          // mapping stays correct after add/remove/renumber.
+          var resolver = function () {
+            return swBlockFields(spec.prefix, block.dataset.blockIndex || '1');
+          };
+          swInjectDropdown(block, resolver, block.firstChild);
+        });
+      });
+      // Fixed guardian sections: anchor to the container of the first
+      // identity field (full_name) for that guardian.
+      var guardianPrefixes = ['perm_guardian', 'sub_perm', 'interim', 'sub_interim'];
+      guardianPrefixes.forEach(function (prefix) {
+        var nameInp = $('[name="' + prefix + '_full_name"]');
+        if (!nameInp) return;
+        var field = nameInp.closest('.sw-q-field') || nameInp.parentNode;
+        var container = field && field.parentNode;
+        if (!container) return;
+        swInjectDropdown(container, swGuardianFields(prefix), field);
+      });
     }
     function saveAndExit() {
       (clearTimeout(window._sw_save_t), saveDraft(), alert('Progress saved. Return within 7 days. Files must be re-uploaded.'), (window.location.href = '/wills-services'));
