@@ -1273,7 +1273,7 @@
       var sel = document.createElement('select');
       sel.className = 'sw-q-input sw-q-excl-select';
       var ph = document.createElement('option');
-      ((ph.value = ''), (ph.textContent = 'Select a country to add'));
+      ((ph.value = ''), (ph.textContent = 'Select a country to add (you can add multiple)'));
       sel.appendChild(ph);
       COUNTRIES.forEach(function (c) {
         var o = document.createElement('option');
@@ -1319,7 +1319,7 @@
       var picker = document.createElement('div');
       ((picker.className = 'sw-q-field sw-q-excl-picker'), picker.setAttribute('data-for', fieldName));
       var label = document.createElement('div');
-      ((label.className = 'sw-q-label'), (label.textContent = 'Add each jurisdiction to exclude'));
+      ((label.className = 'sw-q-label'), (label.textContent = 'Add one or more jurisdictions to exclude (select each country; you can add several)'));
       var sel = swExclBuildSelect(hidden, picker);
       var tags = document.createElement('div');
       tags.className = 'sw-q-excl-tags';
