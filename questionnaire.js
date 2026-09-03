@@ -306,7 +306,7 @@
     function injectStyles() {
       if (document.getElementById('sw-q-runtime-styles')) return;
       const s = document.createElement('style');
-      ((s.id = 'sw-q-runtime-styles'), (s.textContent = `.sw-q-radio-row.sw-q-radio-checked{border:2px solid #1e4381!important;background-color:#eff4f8!important;padding:9px 13px!important}\n.sw-q-radio-row.sw-q-radio-checked>span{font-weight:600!important;color:#121f2f!important}\n.sw-q-invalid{border-color:#c0392b!important;background-color:#fdf2f0!important}\n.sw-q-field-error{color:#c0392b;font-size:12px;margin-top:6px;font-weight:600}\n.sw-q-error-banner{background:#fdf2f0;border:1px solid #c0392b;color:#c0392b;padding:14px 18px;border-radius:6px;margin-bottom:20px;font-size:13px;font-weight:600;line-height:1.5}\n.sw-q-block-remove{margin-top:12px;background:transparent;border:1px solid rgba(192,57,43,.3);color:#c0392b;padding:8px 14px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:4px;cursor:pointer}\n.sw-q-block-remove:hover{background:#fdf2f0}\n[data-add-block].sw-q-add-disabled{opacity:.4!important;pointer-events:none!important}`), document.head.appendChild(s));
+      ((s.id = 'sw-q-runtime-styles'), (s.textContent = `.sw-q-radio-row.sw-q-radio-checked{border:2px solid #1e4381!important;background-color:#eff4f8!important;padding:9px 13px!important}\n.sw-q-radio-row.sw-q-radio-checked>span{font-weight:600!important;color:#121f2f!important}\n.sw-q-invalid{border-color:#c0392b!important;background-color:#fdf2f0!important}\n.sw-q-field-error{color:#c0392b;font-size:12px;margin-top:6px;font-weight:600}\n.sw-q-error-banner{background:#fdf2f0;border:1px solid #c0392b;color:#c0392b;padding:14px 18px;border-radius:6px;margin-bottom:20px;font-size:13px;font-weight:600;line-height:1.5}\n.sw-q-block-remove{margin-top:12px;background:transparent;border:1px solid rgba(192,57,43,.3);color:#c0392b;padding:8px 14px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:4px;cursor:pointer}\n.sw-q-block-remove:hover{background:#fdf2f0}\n[data-add-block].sw-q-add-disabled{opacity:.4!important;pointer-events:none!important}\n.sw-q-excl-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}\n.sw-q-excl-tag{display:inline-flex;align-items:center;gap:8px;background:#eff4f8;border:1px solid #1e4381;color:#121f2f;border-radius:16px;padding:5px 6px 5px 12px;font-size:13px;font-weight:600;line-height:1}\n.sw-q-excl-tag-x{border:none;background:transparent;color:#1e4381;font-size:16px;font-weight:700;line-height:1;cursor:pointer;padding:0 4px}\n.sw-q-excl-tag-x:hover{color:#c0392b}`), document.head.appendChild(s));
     }
     function updateRadioStates() {
       $$('.sw-q-radio-row').forEach((r) => {
@@ -331,6 +331,7 @@
         injectAllEidUploads(),
         wireEidUploadListeners(),
         rebuildPersonDropdowns(),
+        injectExcludedJurisdictionPickers(),
         updateShareTotal(),
         window.scrollTo({ top: 0, behavior: 'smooth' }),
         window._sw_init_done && saveDraft());
@@ -731,7 +732,7 @@
         ['muslim-only-b', 'marriage-civil-b', 'has-prior-will-b', 'scope-except-b', 'disposition-other-b', 'location-yes-b', 'directions-yes-b', 'additional-yes-b'].forEach((c) => {
           showHide('[data-conditional="' + c + '"]', !1);
         });
-      (updateAddButtonStates(), updateShareTotal(), injectAllUploads(), rebuildPersonDropdowns());
+      (updateAddButtonStates(), updateShareTotal(), injectAllUploads(), rebuildPersonDropdowns(), injectExcludedJurisdictionPickers());
     }
     function showHide(selector, condition) {
       $$(selector).forEach((el) => {
@@ -875,8 +876,9 @@
           updateRadioStates(),
           applyConditionals(),
           rebuildPersonDropdowns(),
+          injectExcludedJurisdictionPickers(),
           requestAnimationFrame(() => {
-            (applyConditionals(), rebuildPersonDropdowns(), saveDraft());
+            (applyConditionals(), rebuildPersonDropdowns(), injectExcludedJurisdictionPickers(), saveDraft());
           }));
       });
     }
@@ -1198,6 +1200,141 @@
         swInjectDropdown(container, swGuardianFields(prefix), field);
       });
     }
+    /* ============================================================
+       EXCLUDED JURISDICTIONS MULTI-SELECT (additive)
+       Replaces the single q14_excluded_jurisdictions text input with a
+       country picker (select + removable tags). The submittable value
+       stays a hidden input named q14_excluded_jurisdictions holding a
+       comma-joined string, so submission / draft / mirroring are
+       unchanged. Same for the _b (Testator B) side.
+       ============================================================ */
+    var SW_EXCL_FIELDS = ['q14_excluded_jurisdictions', 'q14_excluded_jurisdictions_b'];
+    // Parse a comma-joined string into a clean, de-duped array of names.
+    function swExclParse(str) {
+      var seen = {},
+        out = [];
+      (str || '')
+        .split(',')
+        .map(function (s) {
+          return s.trim();
+        })
+        .forEach(function (c) {
+          if (!c) return;
+          var k = c.toLowerCase();
+          if (seen[k]) return;
+          seen[k] = !0;
+          out.push(c);
+        });
+      return out;
+    }
+    // Write the array back to the hidden field and fire input+change so
+    // draft-save and mirroring pick up the new value.
+    function swExclSetValue(hidden, arr) {
+      hidden.value = arr.join(', ');
+      try {
+        hidden.dispatchEvent(new Event('input', { bubbles: !0 }));
+      } catch (e) {}
+      try {
+        hidden.dispatchEvent(new Event('change', { bubbles: !0 }));
+      } catch (e) {}
+    }
+    // Render the tag chips for a picker from its hidden field's value.
+    function swExclRenderTags(picker) {
+      var hidden = picker._swHidden,
+        tagWrap = picker._swTags;
+      if (!hidden || !tagWrap) return;
+      var arr = swExclParse(hidden.value);
+      tagWrap.innerHTML = '';
+      arr.forEach(function (country) {
+        var chip = document.createElement('span');
+        chip.className = 'sw-q-excl-tag';
+        var txt = document.createElement('span');
+        txt.textContent = country;
+        var x = document.createElement('button');
+        ((x.type = 'button'), (x.className = 'sw-q-excl-tag-x'), (x.textContent = '×'), x.setAttribute('aria-label', 'Remove ' + country));
+        x.addEventListener('click', function () {
+          var next = swExclParse(hidden.value).filter(function (c) {
+            return c.toLowerCase() !== country.toLowerCase();
+          });
+          (swExclSetValue(hidden, next), swExclRenderTags(picker));
+        });
+        (chip.appendChild(txt), chip.appendChild(x), tagWrap.appendChild(chip));
+      });
+    }
+    // Rebuild tags for ALL injected excluded-jurisdiction pickers from
+    // their hidden field values (used after mirror / draft restore).
+    function swExclRebuildAll() {
+      $$('.sw-q-excl-picker').forEach(function (picker) {
+        swExclRenderTags(picker);
+      });
+    }
+    // Build the country <select> "add on choose" element.
+    function swExclBuildSelect(hidden, picker) {
+      var sel = document.createElement('select');
+      sel.className = 'sw-q-input sw-q-excl-select';
+      var ph = document.createElement('option');
+      ((ph.value = ''), (ph.textContent = 'Select a country to add'));
+      sel.appendChild(ph);
+      COUNTRIES.forEach(function (c) {
+        var o = document.createElement('option');
+        ((o.value = c), (o.textContent = c));
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', function () {
+        var c = sel.value;
+        if (!c) return;
+        var arr = swExclParse(hidden.value);
+        if (
+          !arr.some(function (x) {
+            return x.toLowerCase() === c.toLowerCase();
+          })
+        ) {
+          (arr.push(c), swExclSetValue(hidden, arr), swExclRenderTags(picker));
+        }
+        sel.value = ''; // reset to placeholder so another can be added
+      });
+      return sel;
+    }
+    // Inject the picker for one field name, converting the existing
+    // visible input into a hidden field. Idempotent (guarded).
+    function swInjectExclPicker(fieldName) {
+      var existing = $('[name="' + fieldName + '"]');
+      if (!existing) return;
+      // Already converted + picker present? Just refresh tags.
+      if (existing.dataset && existing.dataset.swExclHidden) {
+        var pk = existing.parentNode && existing.parentNode.querySelector(':scope > .sw-q-excl-picker[data-for="' + fieldName + '"]');
+        if (pk) return void swExclRenderTags(pk);
+      }
+      var parent = existing.parentNode;
+      if (!parent) return;
+      // Convert existing element to a hidden input preserving name+value.
+      var hidden = existing;
+      if ('hidden' !== hidden.type || 'INPUT' !== hidden.tagName) {
+        var h = document.createElement('input');
+        ((h.type = 'hidden'), (h.name = fieldName), (h.value = existing.value || ''));
+        (parent.replaceChild(h, existing), (hidden = h));
+      }
+      hidden.dataset.swExclHidden = '1';
+      // Build the picker UI right after the hidden field.
+      var picker = document.createElement('div');
+      ((picker.className = 'sw-q-field sw-q-excl-picker'), picker.setAttribute('data-for', fieldName));
+      var label = document.createElement('div');
+      ((label.className = 'sw-q-label'), (label.textContent = 'Add each jurisdiction to exclude'));
+      var sel = swExclBuildSelect(hidden, picker);
+      var tags = document.createElement('div');
+      tags.className = 'sw-q-excl-tags';
+      ((picker._swHidden = hidden), (picker._swTags = tags));
+      (picker.appendChild(label), picker.appendChild(sel), picker.appendChild(tags));
+      parent.insertBefore(picker, hidden.nextSibling);
+      swExclRenderTags(picker);
+    }
+    // Inject/refresh both A- and B-side pickers.
+    function injectExcludedJurisdictionPickers() {
+      SW_EXCL_FIELDS.forEach(function (n) {
+        swInjectExclPicker(n);
+      });
+      swExclRebuildAll();
+    }
     function saveAndExit() {
       (clearTimeout(window._sw_save_t), saveDraft(), alert('Progress saved. Return within 7 days. Files must be re-uploaded.'), (window.location.href = '/wills-services'));
     }
@@ -1315,7 +1452,7 @@
       const draft = checkForDraft();
       (showStep(1),
         requestAnimationFrame(() => {
-          (applyConditionals(), updateRadioStates(), injectAllUploads(), injectAllEidUploads(), wireEidUploadListeners(), isCouplesMode() && mirrorAtoB(), draft && showResumeBanner(draft), (window._sw_init_done = !0));
+          (applyConditionals(), updateRadioStates(), injectAllUploads(), injectAllEidUploads(), wireEidUploadListeners(), injectExcludedJurisdictionPickers(), isCouplesMode() && mirrorAtoB(), swExclRebuildAll(), draft && showResumeBanner(draft), (window._sw_init_done = !0));
         }));
     }
     'loading' === document.readyState ? document.addEventListener('DOMContentLoaded', init) : init();
