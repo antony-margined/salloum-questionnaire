@@ -1087,9 +1087,17 @@
     // Build the person registry from the whole form.
     function buildPersonRegistry() {
       var people = [];
-      // Testators
-      people.push(swReadPerson(swTestatorFields(''), 'Testator A'));
-      if (isCouplesMode()) people.push(swReadPerson(swTestatorFields('_b'), 'Testator B'));
+      // Testators — passport file names are UPLOAD_MAP special cases.
+      var tA = swReadPerson(swTestatorFields(''), 'Testator A');
+      tA._passportFileField = 'testator_a_passport_file';
+      tA._eidFileField = 'q6_emirates_id_file';
+      people.push(tA);
+      if (isCouplesMode()) {
+        var tB = swReadPerson(swTestatorFields('_b'), 'Testator B');
+        tB._passportFileField = 'testator_b_passport_file';
+        tB._eidFileField = 'q6_emirates_id_b_file';
+        people.push(tB);
+      }
       // Repeatable person blocks (hyphenated data-block, underscored field prefix)
       var blockSpecs = [
         { db: 'executor', prefix: 'executor', label: 'Executor' },
@@ -1100,12 +1108,20 @@
       ];
       blockSpecs.forEach(function (spec) {
         swBlockIndices(spec.db).forEach(function (idx) {
-          people.push(swReadPerson(swBlockFields(spec.prefix, idx), spec.label + ' ' + idx));
+          var fn = swBlockFields(spec.prefix, idx);
+          var p = swReadPerson(fn, spec.label + ' ' + idx);
+          p._passportFileField = fn.passport ? fn.passport + '_file' : null;
+          p._eidFileField = fn.emirates_id ? fn.emirates_id + '_file' : null;
+          people.push(p);
         });
       });
       // Children (a source of people, per firm decision)
       swBlockIndices('child').forEach(function (idx) {
-        people.push(swReadPerson(swChildFields(idx), 'Child ' + idx));
+        var fn = swChildFields(idx);
+        var p = swReadPerson(fn, 'Child ' + idx);
+        p._passportFileField = fn.passport ? fn.passport + '_file' : null;
+        p._eidFileField = fn.emirates_id ? fn.emirates_id + '_file' : null;
+        people.push(p);
       });
       // Fixed guardian sections
       var guardianSpecs = [
@@ -1115,7 +1131,11 @@
         { prefix: 'sub_interim', label: 'Substitute interim guardian' },
       ];
       guardianSpecs.forEach(function (spec) {
-        people.push(swReadPerson(swGuardianFields(spec.prefix), spec.label));
+        var fn = swGuardianFields(spec.prefix);
+        var p = swReadPerson(fn, spec.label);
+        p._passportFileField = fn.passport ? fn.passport + '_file' : null;
+        p._eidFileField = fn.emirates_id ? fn.emirates_id + '_file' : null;
+        people.push(p);
       });
       // Keep only people with a name OR passport; dedup by key.
       var seen = {},
@@ -1160,14 +1180,32 @@
     // Handle a dropdown selection: populate from registry or clear.
     function swOnPersonSelect(sel, fields) {
       var idx = sel.value;
+      // Resolve target field names now (lazy resolver) to get passport/EID base names.
+      var targetFieldNames = swResolveFields(fields);
+      var targetPassportFile = targetFieldNames && targetFieldNames.passport ? targetFieldNames.passport + '_file' : null;
+      var targetEidFile = targetFieldNames && targetFieldNames.emirates_id ? targetFieldNames.emirates_id + '_file' : null;
       if ('' === idx) {
-        swPopulateTarget(fields, null); // clear for fresh entry
+        swPopulateTarget(fields, null); // clear text fields for fresh entry
+        // Also clear any carried doc references so the block isn't stale.
+        if (targetPassportFile) delete swUploadedFiles[targetPassportFile];
+        if (targetEidFile) delete swUploadedFiles[targetEidFile];
+        swRenderUploadedState();
+        saveDraft();
         return;
       }
       var registry = buildPersonRegistry();
       var person = registry[parseInt(idx, 10)];
       if (!person) return;
       swPopulateTarget(fields, person);
+      // Carry the source person's uploaded documents to the target role.
+      if (targetPassportFile && person._passportFileField && swUploadedFiles[person._passportFileField]) {
+        swUploadedFiles[targetPassportFile] = Object.assign({}, swUploadedFiles[person._passportFileField]);
+      }
+      if (targetEidFile && person._eidFileField && swUploadedFiles[person._eidFileField]) {
+        swUploadedFiles[targetEidFile] = Object.assign({}, swUploadedFiles[person._eidFileField]);
+      }
+      swRenderUploadedState();
+      saveDraft();
     }
     // Build/refresh the <option> list of a dropdown from the registry.
     function swFillDropdownOptions(sel) {
