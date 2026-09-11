@@ -1018,7 +1018,7 @@
           return r.ok ? r.json() : Promise.reject('HTTP ' + r.status);
         })
         .then(function (data) {
-          if (data && data.ok) { swUploadedFiles[name] = { key: data.key, filename: data.filename, url: data.url }; swRenderUploadedState(); }
+          if (data && data.ok) { swUploadedFiles[name] = { key: data.key, filename: data.filename, url: data.url, viewUrl: data.viewUrl, viewToken: data.viewToken }; swRenderUploadedState(); }
         })
         .catch(function () {
           // Silent — submission still sends the raw file as fallback.
@@ -1401,10 +1401,10 @@
         fname.textContent = ref.filename;
         row.appendChild(icon);
         row.appendChild(fname);
-        if (ref.url) {
+        if (ref.viewUrl) {
           var viewLink = document.createElement('a');
           ((viewLink.className = 'sw-q-uploaded-state-view'),
-            (viewLink.href = ref.url),
+            (viewLink.href = ref.viewUrl),
             (viewLink.target = '_blank'),
             viewLink.setAttribute('rel', 'noopener'),
             (viewLink.textContent = 'View'));
