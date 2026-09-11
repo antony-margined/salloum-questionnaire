@@ -994,6 +994,36 @@
        each person-APPOINTING block/section, and copies identity
        fields on selection. Copy-on-select only (no locking/sync).
        ============================================================ */
+    /* ============================================================
+       BACKGROUND FILE UPLOAD ON SELECT (Stage 2, additive)
+       On every valid file-input change, silently POSTs the file to
+       the /upload endpoint. On success records the reference in
+       swUploadedFiles keyed by field name. Submit still works as
+       today; this is read-only from the submission flow's perspective.
+       ============================================================ */
+    var swUploadedFiles = {}; // { [fieldName]: { key, filename, url } }
+    var SW_UPLOAD_ENDPOINT = 'https://salloum-submit.salloumlawbusiness.workers.dev/upload';
+    function swUploadFileInBackground(fileInput) {
+      if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
+      var name = fileInput.getAttribute('name');
+      if (!name) return;
+      var file = fileInput.files[0];
+      var cid = caseId || getCaseId() || null;
+      var fd = new FormData();
+      fd.append('file', file, file.name);
+      fd.append('field', name);
+      if (cid) fd.append('case_id', cid);
+      fetch(SW_UPLOAD_ENDPOINT, { method: 'POST', body: fd })
+        .then(function (r) {
+          return r.ok ? r.json() : Promise.reject('HTTP ' + r.status);
+        })
+        .then(function (data) {
+          if (data && data.ok) swUploadedFiles[name] = { key: data.key, filename: data.filename, url: data.url };
+        })
+        .catch(function () {
+          // Silent — submission still sends the raw file as fallback.
+        });
+    }
     // Canonical identity attribute order (source of truth for copy).
     var SW_PERSON_ATTRS = ['full_name', 'relationship', 'nationality', 'dob', 'pob', 'passport', 'emirates_id'];
     // Read a single field value by name (trimmed). Uses existing $ helper.
@@ -1377,6 +1407,13 @@
                 ('INPUT' === el.tagName || 'TEXTAREA' === el.tagName || 'SELECT' === el.tagName) && 'file' !== el.type && el.value && el.value.trim() && el.classList.remove('sw-q-invalid');
               }),
               saveDraft()));
+        }),
+        // Background upload on file-input select (Stage 2).
+        document.addEventListener('change', (e) => {
+          const t = e.target;
+          if (t && 'INPUT' === t.tagName && 'file' === t.type && t.closest('.sw-q-page, form, [data-step]')) {
+            if (validateFile(t)) swUploadFileInBackground(t);
+          }
         }),
         document.addEventListener('input', (e) => {
           const t = e.target;
