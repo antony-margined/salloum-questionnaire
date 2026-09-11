@@ -951,12 +951,25 @@
         const v = td[k];
         null != v && ('object' == typeof v ? fd.append(k, JSON.stringify(v)) : fd.append(k, String(v)));
       }
+      const physicalFields = new Set();
       for (const i of $$('input[type="file"]')) {
         if (i.files && i.files[0]) {
           const f = await shrinkImg(i.files[0]);
           fd.append(i.name, f, f.name);
+          physicalFields.add(i.name);
         }
       }
+      // Append persisted R2 references for fields with no physical file
+      // at submit time (e.g. after a refresh). Worker/Make must be updated
+      // to read persisted_files and merge them into its files-to-SharePoint
+      // loop using the url (Make-secret /file/ link) in each entry.
+      const persistedRefs = Object.keys(swUploadedFiles)
+        .filter(function (n) { return !physicalFields.has(n); })
+        .map(function (n) {
+          var r = swUploadedFiles[n];
+          return { field: n, key: r.key, filename: r.filename, url: r.url };
+        });
+      if (persistedRefs.length) fd.append('persisted_files', JSON.stringify(persistedRefs));
       return fd;
     }
     async function submitForm() {
