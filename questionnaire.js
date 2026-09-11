@@ -1188,6 +1188,15 @@
           swInjectDropdown(block, resolver, block.firstChild);
         });
       });
+      // Bequest blocks: only recipient (full_name) and relationship are
+      // person-identity fields. All other attrs are null (not present).
+      $$('[data-block="bequest"]').forEach(function (block) {
+        var resolver = function () {
+          var idx = block.dataset.blockIndex || '1';
+          return { full_name: 'bequest_' + idx + '_recipient', relationship: 'bequest_' + idx + '_relationship', nationality: null, dob: null, pob: null, passport: null, emirates_id: null };
+        };
+        swInjectDropdown(block, resolver, block.firstChild);
+      });
       // Fixed guardian sections: anchor to the container of the first
       // identity field (full_name) for that guardian.
       var guardianPrefixes = ['perm_guardian', 'sub_perm', 'interim', 'sub_interim'];
