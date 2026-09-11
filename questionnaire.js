@@ -306,7 +306,7 @@
     function injectStyles() {
       if (document.getElementById('sw-q-runtime-styles')) return;
       const s = document.createElement('style');
-      ((s.id = 'sw-q-runtime-styles'), (s.textContent = `.sw-q-radio-row.sw-q-radio-checked{border:2px solid #1e4381!important;background-color:#eff4f8!important;padding:9px 13px!important}\n.sw-q-radio-row.sw-q-radio-checked>span{font-weight:600!important;color:#121f2f!important}\n.sw-q-invalid{border-color:#c0392b!important;background-color:#fdf2f0!important}\n.sw-q-field-error{color:#c0392b;font-size:12px;margin-top:6px;font-weight:600}\n.sw-q-error-banner{background:#fdf2f0;border:1px solid #c0392b;color:#c0392b;padding:14px 18px;border-radius:6px;margin-bottom:20px;font-size:13px;font-weight:600;line-height:1.5}\n.sw-q-block-remove{margin-top:12px;background:transparent;border:1px solid rgba(192,57,43,.3);color:#c0392b;padding:8px 14px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:4px;cursor:pointer}\n.sw-q-block-remove:hover{background:#fdf2f0}\n[data-add-block].sw-q-add-disabled{opacity:.4!important;pointer-events:none!important}\n.sw-q-excl-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}\n.sw-q-excl-tag{display:inline-flex;align-items:center;gap:8px;background:#eff4f8;border:1px solid #1e4381;color:#121f2f;border-radius:16px;padding:5px 6px 5px 12px;font-size:13px;font-weight:600;line-height:1}\n.sw-q-excl-tag-x{border:none;background:transparent;color:#1e4381;font-size:16px;font-weight:700;line-height:1;cursor:pointer;padding:0 4px}\n.sw-q-excl-tag-x:hover{color:#c0392b}`), document.head.appendChild(s));
+      ((s.id = 'sw-q-runtime-styles'), (s.textContent = `.sw-q-radio-row.sw-q-radio-checked{border:2px solid #1e4381!important;background-color:#eff4f8!important;padding:9px 13px!important}\n.sw-q-radio-row.sw-q-radio-checked>span{font-weight:600!important;color:#121f2f!important}\n.sw-q-invalid{border-color:#c0392b!important;background-color:#fdf2f0!important}\n.sw-q-field-error{color:#c0392b;font-size:12px;margin-top:6px;font-weight:600}\n.sw-q-error-banner{background:#fdf2f0;border:1px solid #c0392b;color:#c0392b;padding:14px 18px;border-radius:6px;margin-bottom:20px;font-size:13px;font-weight:600;line-height:1.5}\n.sw-q-block-remove{margin-top:12px;background:transparent;border:1px solid rgba(192,57,43,.3);color:#c0392b;padding:8px 14px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:4px;cursor:pointer}\n.sw-q-block-remove:hover{background:#fdf2f0}\n[data-add-block].sw-q-add-disabled{opacity:.4!important;pointer-events:none!important}\n.sw-q-excl-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}\n.sw-q-excl-tag{display:inline-flex;align-items:center;gap:8px;background:#eff4f8;border:1px solid #1e4381;color:#121f2f;border-radius:16px;padding:5px 6px 5px 12px;font-size:13px;font-weight:600;line-height:1}\n.sw-q-excl-tag-x{border:none;background:transparent;color:#1e4381;font-size:16px;font-weight:700;line-height:1;cursor:pointer;padding:0 4px}\n.sw-q-excl-tag-x:hover{color:#c0392b}\n.sw-q-uploaded-state{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:13px;color:#1e4381;font-weight:600;line-height:1.4}\n.sw-q-uploaded-state-icon{color:#27ae60;font-size:15px}\n.sw-q-uploaded-state-view{color:#1e4381;font-size:12px;text-decoration:underline}`), document.head.appendChild(s));
     }
     function updateRadioStates() {
       $$('.sw-q-radio-row').forEach((r) => {
@@ -332,6 +332,7 @@
         wireEidUploadListeners(),
         rebuildPersonDropdowns(),
         injectExcludedJurisdictionPickers(),
+        swRenderUploadedState(),
         updateShareTotal(),
         window.scrollTo({ top: 0, behavior: 'smooth' }),
         window._sw_init_done && saveDraft());
@@ -452,7 +453,7 @@
             const r = field.closest('.sw-q-radio-row');
             (r && r.classList.add('sw-q-invalid'), addErrorToWrap(field.closest('.sw-q-field') || (r && r.closest('.sw-q-field')), 'Please confirm to continue'));
           }
-        } else 'file' === field.type ? (field.files && field.files.length) || ((isInvalid = !0), markFieldError(field, 'Please upload this document to continue')) : (field.value && field.value.trim()) || ((isInvalid = !0), markFieldError(field, 'This field is required'));
+        } else 'file' === field.type ? (field.files && field.files.length) || swUploadedFiles[field.name] || ((isInvalid = !0), markFieldError(field, 'Please upload this document to continue')) : (field.value && field.value.trim()) || ((isInvalid = !0), markFieldError(field, 'This field is required'));
         isInvalid && (invalidCount++, firstInvalid || (firstInvalid = field));
       }
       if (
@@ -724,7 +725,7 @@
         ['muslim-only-b', 'marriage-civil-b', 'has-prior-will-b', 'scope-except-b', 'disposition-other-b', 'location-yes-b', 'directions-yes-b', 'additional-yes-b'].forEach((c) => {
           showHide('[data-conditional="' + c + '"]', !1);
         });
-      (updateAddButtonStates(), updateShareTotal(), injectAllUploads(), rebuildPersonDropdowns(), injectExcludedJurisdictionPickers());
+      (updateAddButtonStates(), updateShareTotal(), injectAllUploads(), rebuildPersonDropdowns(), injectExcludedJurisdictionPickers(), swRenderUploadedState());
     }
     function showHide(selector, condition) {
       $$(selector).forEach((el) => {
@@ -863,14 +864,20 @@
                   })
               : (fields[0].checked = !!value));
       });
+      // Restore uploaded-file references BEFORE the UI rebuilds so
+      // swRenderUploadedState and validation can use them immediately.
+      if (data._uploadedFiles && 'object' == typeof data._uploadedFiles) {
+        Object.assign(swUploadedFiles, data._uploadedFiles);
+      }
       requestAnimationFrame(() => {
         (data._step && showStep(data._step),
           updateRadioStates(),
           applyConditionals(),
           rebuildPersonDropdowns(),
           injectExcludedJurisdictionPickers(),
+          swRenderUploadedState(),
           requestAnimationFrame(() => {
-            (applyConditionals(), rebuildPersonDropdowns(), injectExcludedJurisdictionPickers(), saveDraft());
+            (applyConditionals(), rebuildPersonDropdowns(), injectExcludedJurisdictionPickers(), swRenderUploadedState(), saveDraft());
           }));
       });
     }
@@ -921,6 +928,7 @@
       const pkg = getPackage();
       pkg && (data._package = pkg);
       const ch = getChannel();
+      if (Object.keys(swUploadedFiles).length) data._uploadedFiles = swUploadedFiles;
       return (ch && (data._channel = ch), data);
     }
     async function shrinkImg(f) {
@@ -1010,7 +1018,7 @@
           return r.ok ? r.json() : Promise.reject('HTTP ' + r.status);
         })
         .then(function (data) {
-          if (data && data.ok) swUploadedFiles[name] = { key: data.key, filename: data.filename, url: data.url };
+          if (data && data.ok) { swUploadedFiles[name] = { key: data.key, filename: data.filename, url: data.url }; swRenderUploadedState(); }
         })
         .catch(function () {
           // Silent — submission still sends the raw file as fallback.
@@ -1365,6 +1373,46 @@
         swInjectExclPicker(n);
       });
       swExclRebuildAll();
+    }
+    /* ============================================================
+       UPLOADED-FILE STATE RENDERING (Spec 3B, additive)
+       For every file input whose name is in swUploadedFiles, renders
+       (once, guarded) a status row showing ✓ filename + View link
+       inside the .sw-q-upload-field wrapper. The <input type="file">
+       stays present so the user can replace the file.
+       ============================================================ */
+    function swRenderUploadedState() {
+      $$('input[type="file"]').forEach(function (inp) {
+        var name = inp.getAttribute('name');
+        if (!name) return;
+        var ref = swUploadedFiles[name];
+        var wrap = inp.closest('.sw-q-upload-field');
+        if (!wrap) return;
+        // Remove any existing status row so it can be refreshed.
+        var existing = wrap.querySelector('.sw-q-uploaded-state');
+        if (existing) existing.remove();
+        // If no reference recorded, nothing to show.
+        if (!ref || !ref.filename) return;
+        var row = document.createElement('div');
+        row.className = 'sw-q-uploaded-state';
+        var icon = document.createElement('span');
+        ((icon.className = 'sw-q-uploaded-state-icon'), (icon.textContent = '✓'));
+        var fname = document.createElement('span');
+        fname.textContent = ref.filename;
+        row.appendChild(icon);
+        row.appendChild(fname);
+        if (ref.url) {
+          var viewLink = document.createElement('a');
+          ((viewLink.className = 'sw-q-uploaded-state-view'),
+            (viewLink.href = ref.url),
+            (viewLink.target = '_blank'),
+            viewLink.setAttribute('rel', 'noopener'),
+            (viewLink.textContent = 'View'));
+          row.appendChild(viewLink);
+        }
+        // Insert after the file input so it sits below it.
+        inp.parentNode.insertBefore(row, inp.nextSibling);
+      });
     }
     function saveAndExit() {
       (clearTimeout(window._sw_save_t), saveDraft(), alert('Progress saved. Return within 7 days. Files must be re-uploaded.'), (window.location.href = '/wills-services'));
