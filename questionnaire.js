@@ -387,17 +387,9 @@
       (t < 1 && (t = 1), showStep(t));
     }
     function shouldShowGuardianship() {
-      const p = $('[data-step="6"]');
-      if (!p) return !1;
-      const d = $$('input[type="date"],input[name*="dob"],input[name*="_dob"]', p);
-      if (!d.length) return !1;
-      const today = new Date(),
-        cut = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-      return d.some((i) => {
-        if (!i.value) return !1;
-        const dob = new Date(i.value);
-        return !isNaN(dob.getTime()) && dob > cut;
-      });
+      // Always show Part G (step 7). The q28_has_minors radio inside
+      // step 7 drives whether the guardianship sub-questions appear.
+      return true;
     }
     function clearAllErrors() {
       ($$('.sw-q-invalid').forEach((e) => e.classList.remove('sw-q-invalid')), $$('.sw-q-field-error').forEach((e) => e.remove()), $$('.sw-q-error-banner').forEach((e) => e.remove()));
