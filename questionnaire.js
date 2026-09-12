@@ -306,7 +306,7 @@
     function injectStyles() {
       if (document.getElementById('sw-q-runtime-styles')) return;
       const s = document.createElement('style');
-      ((s.id = 'sw-q-runtime-styles'), (s.textContent = `.sw-q-radio-row.sw-q-radio-checked{border:2px solid #1e4381!important;background-color:#eff4f8!important;padding:9px 13px!important}\n.sw-q-radio-row.sw-q-radio-checked>span{font-weight:600!important;color:#121f2f!important}\n.sw-q-invalid{border-color:#c0392b!important;background-color:#fdf2f0!important}\n.sw-q-field-error{color:#c0392b;font-size:12px;margin-top:6px;font-weight:600}\n.sw-q-error-banner{background:#fdf2f0;border:1px solid #c0392b;color:#c0392b;padding:14px 18px;border-radius:6px;margin-bottom:20px;font-size:13px;font-weight:600;line-height:1.5}\n.sw-q-block-remove{margin-top:12px;background:transparent;border:1px solid rgba(192,57,43,.3);color:#c0392b;padding:8px 14px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:4px;cursor:pointer}\n.sw-q-block-remove:hover{background:#fdf2f0}\n[data-add-block].sw-q-add-disabled{opacity:.4!important;pointer-events:none!important}\n.sw-q-excl-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}\n.sw-q-excl-tag{display:inline-flex;align-items:center;gap:8px;background:#eff4f8;border:1px solid #1e4381;color:#121f2f;border-radius:16px;padding:5px 6px 5px 12px;font-size:13px;font-weight:600;line-height:1}\n.sw-q-excl-tag-x{border:none;background:transparent;color:#1e4381;font-size:16px;font-weight:700;line-height:1;cursor:pointer;padding:0 4px}\n.sw-q-excl-tag-x:hover{color:#c0392b}\n.sw-q-uploaded-state{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:13px;color:#1e4381;font-weight:600;line-height:1.4}\n.sw-q-uploaded-state-icon{color:#27ae60;font-size:15px}\n.sw-q-uploaded-state-view{color:#1e4381;font-size:12px;text-decoration:underline}`), document.head.appendChild(s));
+      ((s.id = 'sw-q-runtime-styles'), (s.textContent = `.sw-q-radio-row.sw-q-radio-checked{border:2px solid #1e4381!important;background-color:#eff4f8!important;padding:9px 13px!important}\n.sw-q-radio-row.sw-q-radio-checked>span{font-weight:600!important;color:#121f2f!important}\n.sw-q-invalid{border-color:#c0392b!important;background-color:#fdf2f0!important}\n.sw-q-field-error{color:#c0392b;font-size:12px;margin-top:6px;font-weight:600}\n.sw-q-error-banner{background:#fdf2f0;border:1px solid #c0392b;color:#c0392b;padding:14px 18px;border-radius:6px;margin-bottom:20px;font-size:13px;font-weight:600;line-height:1.5}\n.sw-q-block-remove{margin-top:12px;background:transparent;border:1px solid rgba(192,57,43,.3);color:#c0392b;padding:8px 14px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:4px;cursor:pointer}\n.sw-q-block-remove:hover{background:#fdf2f0}\n[data-add-block].sw-q-add-disabled{opacity:.4!important;pointer-events:none!important}\n.sw-q-excl-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}\n.sw-q-excl-tag{display:inline-flex;align-items:center;gap:8px;background:#eff4f8;border:1px solid #1e4381;color:#121f2f;border-radius:16px;padding:5px 6px 5px 12px;font-size:13px;font-weight:600;line-height:1}\n.sw-q-excl-tag-x{border:none;background:transparent;color:#1e4381;font-size:16px;font-weight:700;line-height:1;cursor:pointer;padding:0 4px}\n.sw-q-excl-tag-x:hover{color:#c0392b}\n.sw-q-uploaded-state{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:13px;color:#1e4381;font-weight:600;line-height:1.4}\n.sw-q-uploaded-state-icon{color:#27ae60;font-size:15px}\n.sw-q-uploaded-state-view{color:#1e4381;font-size:12px;text-decoration:underline}\n.sw-q-uploaded-state-remove{background:transparent;border:none;color:#c0392b;font-size:12px;text-decoration:underline;cursor:pointer;padding:0;font-family:inherit}\n.sw-q-uploaded-state-remove:hover{color:#922b21}`), document.head.appendChild(s));
     }
     function updateRadioStates() {
       $$('.sw-q-radio-row').forEach((r) => {
@@ -598,6 +598,13 @@
           const rF = $('input[name="confirm_name"]');
           return (rF && markFieldError(rF, 'Must match your legal name from Part A'), showErrorBanner('Retyped name does not match Part A.'), !1);
         }
+      }
+      // q39_incapacity must be answered when its section is visible (Gold/Couples/Platinum).
+      // Silver hides the section via data-incap-section; isVisible() guards correctly.
+      const incapRadio = $('input[type="radio"][name="q39_incapacity"]', stepEl);
+      if (incapRadio && isVisible(incapRadio) && !$('input[type="radio"][name="q39_incapacity"]:checked', stepEl)) {
+        const fi = markRadioGroupInvalid('q39_incapacity', stepEl, 'Please choose an option');
+        (invalidCount++, firstInvalid || (firstInvalid = fi));
       }
       if (firstInvalid) {
         showErrorBanner(invalidCount + ' ' + (1 === invalidCount ? 'field needs' : 'fields need') + ' your attention. Please review the highlighted ' + (1 === invalidCount ? 'field' : 'fields') + ' below.');
@@ -1461,6 +1468,17 @@
             (viewLink.textContent = 'View'));
           row.appendChild(viewLink);
         }
+        // Remove button: detaches the file from the form (R2 lifecycle handles actual deletion).
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'sw-q-uploaded-state-remove';
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', function () {
+          delete swUploadedFiles[name];
+          row.remove();
+          saveDraft();
+        });
+        row.appendChild(removeBtn);
         // Insert after the file input so it sits below it.
         inp.parentNode.insertBefore(row, inp.nextSibling);
       });
