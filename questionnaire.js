@@ -599,13 +599,118 @@
           return (rF && markFieldError(rF, 'Must match your legal name from Part A'), showErrorBanner('Retyped name does not match Part A.'), !1);
         }
       }
-      // q39_incapacity must be answered when its section is visible (Gold/Couples/Platinum).
-      // Silver hides the section via data-incap-section; isVisible() guards correctly.
-      const incapRadio = $('input[type="radio"][name="q39_incapacity"]', stepEl);
-      if (incapRadio && isVisible(incapRadio) && !$('input[type="radio"][name="q39_incapacity"]:checked', stepEl)) {
-        const fi = markRadioGroupInvalid('q39_incapacity', stepEl, 'Please choose an option');
-        (invalidCount++, firstInvalid || (firstInvalid = fi));
+      // ── Conditional-required rules ──────────────────────────────────────
+      // Each rule only fires on the step where the fields live, and only
+      // when the controlling condition is met AND the field is visible.
+      // Fields in OPTIONAL_FIELDS are intentionally left there (they default
+      // to optional); these rules explicitly enforce them when revealed.
+      // Helper: require a text/select field by name when visible + empty.
+      const swRequireField = (name, msg) => {
+        const f = $('[name="' + name + '"]', stepEl);
+        if (f && isVisible(f) && !(f.value && f.value.trim())) {
+          markFieldError(f, msg || 'This field is required');
+          invalidCount++;
+          firstInvalid || (firstInvalid = f);
+        }
+      };
+      // Helper: require a radio group by name when visible + unchecked.
+      const swRequireRadio = (name, msg) => {
+        const r = $('input[type="radio"][name="' + name + '"]', stepEl);
+        if (r && isVisible(r) && !$('input[type="radio"][name="' + name + '"]:checked', stepEl)) {
+          const fi = markRadioGroupInvalid(name, stepEl, msg || 'Please choose an option');
+          invalidCount++;
+          firstInvalid || (firstInvalid = fi);
+        }
+      };
+      // Step 2 — Prior wills
+      if (2 === currentStep) {
+        if (getRadioValue('q12_prior_will') && 'no' !== getRadioValue('q12_prior_will')) {
+          $$('input[type="text"],textarea,select', stepEl).forEach((f) => {
+            const wrap = f.closest('[data-conditional="has-prior-will"]');
+            if (wrap && isVisible(f) && f.hasAttribute('required') && !(f.value && f.value.trim())) {
+              markFieldError(f, 'This field is required');
+              invalidCount++;
+              firstInvalid || (firstInvalid = f);
+            }
+          });
+        }
+        if (isCouplesMode() && getRadioValue('q12_prior_will_b') && 'no' !== getRadioValue('q12_prior_will_b')) {
+          $$('input[type="text"],textarea,select', stepEl).forEach((f) => {
+            const wrap = f.closest('[data-conditional="has-prior-will-b"]');
+            if (wrap && isVisible(f) && f.hasAttribute('required') && !(f.value && f.value.trim())) {
+              markFieldError(f, 'This field is required');
+              invalidCount++;
+              firstInvalid || (firstInvalid = f);
+            }
+          });
+        }
       }
+      // Step 3 — Excluded jurisdictions
+      if (3 === currentStep) {
+        if ('worldwide-except' === getRadioValue('q14_scope')) {
+          const ejf = $('[name="q14_excluded_jurisdictions"]', stepEl);
+          if (ejf && isVisible(ejf) && !(ejf.value && ejf.value.trim())) {
+            markFieldError(ejf, 'Please select at least one jurisdiction to exclude');
+            invalidCount++;
+            firstInvalid || (firstInvalid = ejf);
+          }
+        }
+        if (isCouplesMode() && 'worldwide-except' === getRadioValue('q14_scope_b')) {
+          const ejfb = $('[name="q14_excluded_jurisdictions_b"]', stepEl);
+          if (ejfb && isVisible(ejfb) && !(ejfb.value && ejfb.value.trim())) {
+            markFieldError(ejfb, 'Please select at least one jurisdiction to exclude');
+            invalidCount++;
+            firstInvalid || (firstInvalid = ejfb);
+          }
+        }
+      }
+      // Step 5 — Funeral wishes conditionals
+      if (5 === currentStep) {
+        if ('other' === getRadioValue('q19_disposition'))      swRequireField('q19_other_disposition');
+        if ('yes'   === getRadioValue('q20_location_pref'))    swRequireField('q20_location_details');
+        if ('yes'   === getRadioValue('q21_directions_pref'))  swRequireField('q21_directions_details');
+        if (isCouplesMode()) {
+          if ('other' === getRadioValue('q19_disposition_b'))     swRequireField('q19_other_disposition_b');
+          if ('yes'   === getRadioValue('q20_location_pref_b'))   swRequireField('q20_location_details_b');
+          if ('yes'   === getRadioValue('q21_directions_pref_b')) swRequireField('q21_directions_details_b');
+        }
+      }
+      // Step 7 — Guardian sections
+      if (7 === currentStep) {
+        // For each guardian section: when "yes" is chosen, require the
+        // revealed identity fields that are visible and non-empty.
+        const swRequireGuardianFields = (prefix) => {
+          ['full_name','relationship','nationality','dob','pob','passport'].forEach((attr) => {
+            const name = prefix + '_' + attr;
+            const f = $('[name="' + name + '"]', stepEl);
+            if (f && isVisible(f) && !(f.value && f.value.trim())) {
+              markFieldError(f, 'This field is required');
+              invalidCount++;
+              firstInvalid || (firstInvalid = f);
+            }
+          });
+        };
+        if ('yes' === getRadioValue('q30_has_perm_guardian'))  swRequireGuardianFields('perm_guardian');
+        if ('yes' === getRadioValue('q32_has_sub_perm'))       swRequireGuardianFields('sub_perm');
+        if ('yes' === getRadioValue('q34_has_interim'))        swRequireGuardianFields('interim');
+        if ('yes' === getRadioValue('q36_has_sub_interim'))    swRequireGuardianFields('sub_interim');
+      }
+      // Step 8 — Additional wishes + incapacity directives
+      if (8 === currentStep) {
+        // Additional wishes
+        if ('yes' === getRadioValue('q38_additional'))   swRequireField('q38_additional_details');
+        if (isCouplesMode() && 'yes' === getRadioValue('q38_additional_b')) swRequireField('q38_additional_details_b');
+        // Incapacity (Gold/Couples/Platinum — section hidden on Silver via data-incap-section)
+        swRequireRadio('q39_incapacity');
+        if ('0' === getRadioValue('q39_incapacity')) {
+          swRequireRadio('q40_incap_guardian_choice');
+          swRequireField('q41_endoflife');
+          if ('1' === getRadioValue('q40_incap_guardian_choice')) {
+            ['q40_incap_guardian_name','q40_incap_guardian_rel','q40_incap_guardian_nat','q40_incap_guardian_dob','q40_incap_guardian_passport'].forEach((n) => swRequireField(n));
+          }
+        }
+      }
+      // ── End conditional-required rules ──────────────────────────────────
       if (firstInvalid) {
         showErrorBanner(invalidCount + ' ' + (1 === invalidCount ? 'field needs' : 'fields need') + ' your attention. Please review the highlighted ' + (1 === invalidCount ? 'field' : 'fields') + ' below.');
         const t = firstInvalid.closest('.sw-q-field, .sw-q-b-wrap') || firstInvalid;
