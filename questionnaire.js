@@ -627,7 +627,7 @@
         if (getRadioValue('q12_prior_will') && 'no' !== getRadioValue('q12_prior_will')) {
           $$('input[type="text"],textarea,select', stepEl).forEach((f) => {
             const wrap = f.closest('[data-conditional="has-prior-will"]');
-            if (wrap && isVisible(f) && f.hasAttribute('required') && !(f.value && f.value.trim())) {
+            if (wrap && isVisible(f) && !(f.value && f.value.trim())) {
               markFieldError(f, 'This field is required');
               invalidCount++;
               firstInvalid || (firstInvalid = f);
@@ -637,7 +637,7 @@
         if (isCouplesMode() && getRadioValue('q12_prior_will_b') && 'no' !== getRadioValue('q12_prior_will_b')) {
           $$('input[type="text"],textarea,select', stepEl).forEach((f) => {
             const wrap = f.closest('[data-conditional="has-prior-will-b"]');
-            if (wrap && isVisible(f) && f.hasAttribute('required') && !(f.value && f.value.trim())) {
+            if (wrap && isVisible(f) && !(f.value && f.value.trim())) {
               markFieldError(f, 'This field is required');
               invalidCount++;
               firstInvalid || (firstInvalid = f);
@@ -649,7 +649,7 @@
       if (3 === currentStep) {
         if ('worldwide-except' === getRadioValue('q14_scope')) {
           const ejf = $('[name="q14_excluded_jurisdictions"]', stepEl);
-          if (ejf && isVisible(ejf) && !(ejf.value && ejf.value.trim())) {
+          if (ejf && !(ejf.value && ejf.value.trim())) {
             markFieldError(ejf, 'Please select at least one jurisdiction to exclude');
             invalidCount++;
             firstInvalid || (firstInvalid = ejf);
@@ -657,7 +657,7 @@
         }
         if (isCouplesMode() && 'worldwide-except' === getRadioValue('q14_scope_b')) {
           const ejfb = $('[name="q14_excluded_jurisdictions_b"]', stepEl);
-          if (ejfb && isVisible(ejfb) && !(ejfb.value && ejfb.value.trim())) {
+          if (ejfb && !(ejfb.value && ejfb.value.trim())) {
             markFieldError(ejfb, 'Please select at least one jurisdiction to exclude');
             invalidCount++;
             firstInvalid || (firstInvalid = ejfb);
@@ -704,7 +704,7 @@
         swRequireRadio('q39_incapacity');
         if ('0' === getRadioValue('q39_incapacity')) {
           swRequireRadio('q40_incap_guardian_choice');
-          swRequireField('q41_endoflife');
+          swRequireRadio('q41_endoflife');
           if ('1' === getRadioValue('q40_incap_guardian_choice')) {
             ['q40_incap_guardian_name','q40_incap_guardian_rel','q40_incap_guardian_nat','q40_incap_guardian_dob','q40_incap_guardian_passport'].forEach((n) => swRequireField(n));
           }
