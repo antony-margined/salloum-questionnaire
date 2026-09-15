@@ -1150,7 +1150,7 @@
           return r.ok ? r.json() : Promise.reject('HTTP ' + r.status);
         })
         .then(function (data) {
-          if (data && data.ok) { swUploadedFiles[name] = { key: data.key, filename: data.filename, url: data.url, viewUrl: data.viewUrl, viewToken: data.viewToken }; swRenderUploadedState(); }
+          if (data && data.ok) { swUploadedFiles[name] = { key: data.key, filename: data.filename, url: data.url, viewUrl: data.viewUrl, viewToken: data.viewToken }; swRenderUploadedState(); swPropagateDocFromSourceFile(name); }
         })
         .catch(function () {
           // Silent — submission still sends the raw file as fallback.
@@ -1683,10 +1683,16 @@
       if (passportFile) swLockedFileFields[passportFile] = true;
       if (eidFile) swLockedFileFields[eidFile] = true;
       var container = swReuseContainer(fieldNames.full_name);
-      var step = person ? person._sourceStep : swReusedBlocks[fieldNames.full_name] && swReusedBlocks[fieldNames.full_name].sourceStep;
-      var scrollName = person ? person._sourceScrollName : swReusedBlocks[fieldNames.full_name] && swReusedBlocks[fieldNames.full_name].sourceScrollName;
+      var existing = swReusedBlocks[fieldNames.full_name];
+      var step = person ? person._sourceStep : existing && existing.sourceStep;
+      var scrollName = person ? person._sourceScrollName : existing && existing.sourceScrollName;
+      // Stable source-slot key (link by SLOT, not by name). Derived from the
+      // source person's full_name field (its _sourceScrollName).
+      var sourceKey = person ? (swSlotFromFieldName(person._sourceScrollName) || {}).sourceKey : existing && existing.sourceKey;
       swInsertReuseNotice(container, step, scrollName);
-      swReusedBlocks[fieldNames.full_name] = { sourceStep: step, sourceScrollName: scrollName };
+      // Tag the target block so propagation can find it by source slot.
+      if (container && sourceKey) container.setAttribute('data-reused-from', sourceKey);
+      swReusedBlocks[fieldNames.full_name] = { sourceStep: step, sourceScrollName: scrollName, sourceKey: sourceKey, targetFieldNames: fieldNames };
     }
     // Remove the locked state for a reused block.
     function swClearReuseLock(fieldNames) {
@@ -1696,7 +1702,9 @@
       var eidFile = fieldNames.emirates_id ? fieldNames.emirates_id + '_file' : null;
       if (passportFile) delete swLockedFileFields[passportFile];
       if (eidFile) delete swLockedFileFields[eidFile];
-      swRemoveReuseNotice(swReuseContainer(fieldNames.full_name));
+      var container = swReuseContainer(fieldNames.full_name);
+      swRemoveReuseNotice(container);
+      if (container) container.removeAttribute('data-reused-from');
       delete swReusedBlocks[fieldNames.full_name];
     }
     // Re-apply all reuse locks from swReusedBlocks (after draft restore /
@@ -1729,6 +1737,110 @@
       var mG = fullNameField.match(/^(.*)_full_name$/);
       if (mG) return swGuardianFields(mG[1]);
       return null;
+    }
+    /* ============================================================
+       LIVE SOURCE→COPY PROPAGATION (additive)
+       When a person's identity fields are edited at their SOURCE slot,
+       the changes flow to every locked reused copy. Copies are linked to
+       their source by a stable slot key (data-reused-from), NOT by name,
+       so editing the name never breaks the link. Only whitelisted
+       identity fields propagate; role-specific fields are untouched.
+       ============================================================ */
+    var swPropagating = false; // re-entrancy guard
+    // Derive a stable source-slot key from any field NAME.
+    // Returns { sourceKey, fieldNames } or null if not an identity slot.
+    function swSlotFromFieldName(name) {
+      if (!name) return null;
+      // Testators (A / B) — any of their identity fields map to the slot.
+      if (/^(q1_full_name|q2_nationality|q3_dob|q4_pob|q5_passport|q6_emirates_id)_b$/.test(name)) return { sourceKey: 'testator:b', fieldNames: swTestatorFields('_b') };
+      if (/^(q1_full_name|q2_nationality|q3_dob|q4_pob|q5_passport|q6_emirates_id)$/.test(name)) return { sourceKey: 'testator:a', fieldNames: swTestatorFields('') };
+      // Bequest: bequest_N_recipient / _relationship
+      var mBq = name.match(/^bequest_(\d+)_(recipient|relationship)$/);
+      if (mBq) return { sourceKey: 'bequest:' + mBq[1], fieldNames: { full_name: 'bequest_' + mBq[1] + '_recipient', relationship: 'bequest_' + mBq[1] + '_relationship', nationality: null, dob: null, pob: null, passport: null, emirates_id: null } };
+      // Repeatable blocks: <prefix>_<N>_<attr>
+      var mBlk = name.match(/^(executor_b|executor|sub_executor|primary_ben|secondary_ben|child)_(\d+)_(full_name|relationship|nationality|dob|pob|passport|emirates_id)$/);
+      if (mBlk) {
+        var prefix = mBlk[1],
+          idx = mBlk[2];
+        return { sourceKey: prefix + ':' + idx, fieldNames: 'child' === prefix ? swChildFields(idx) : swBlockFields(prefix, idx) };
+      }
+      // Guardians: <prefix>_<attr>
+      var mG = name.match(/^(perm_guardian|sub_perm|interim|sub_interim)_(full_name|relationship|nationality|dob|pob|passport|emirates_id)$/);
+      if (mG) return { sourceKey: 'guardian:' + mG[1], fieldNames: swGuardianFields(mG[1]) };
+      return null;
+    }
+    // Set a value on a (possibly locked) target field programmatically.
+    // readOnly blocks user typing, not script; for locked selects we also
+    // update the guard's remembered value so its revert doesn't fight us.
+    function swSetLockedValue(name, value) {
+      var el = $('[name="' + name + '"]');
+      if (!el || 'file' === el.type) return;
+      el.value = null == value ? '' : value;
+      if ('SELECT' === el.tagName && null != el._swLockedValue) el._swLockedValue = el.value;
+    }
+    // Copy identity values + carried docs from a source slot to one target.
+    function swPropagateOneTarget(sourceFieldNames, targetFieldNames) {
+      if (!sourceFieldNames || !targetFieldNames) return;
+      SW_LOCK_ATTRS.forEach(function (a) {
+        if (!sourceFieldNames[a] || !targetFieldNames[a]) return;
+        var src = $('[name="' + sourceFieldNames[a] + '"]');
+        if (!src || 'file' === src.type) return;
+        swSetLockedValue(targetFieldNames[a], src.value);
+      });
+      // Mirror carried documents (locked copy tracks the source doc).
+      var srcPassportFile = sourceFieldNames.passport ? sourceFieldNames.passport + '_file' : null;
+      var srcEidFile = sourceFieldNames.emirates_id ? sourceFieldNames.emirates_id + '_file' : null;
+      var tgtPassportFile = targetFieldNames.passport ? targetFieldNames.passport + '_file' : null;
+      var tgtEidFile = targetFieldNames.emirates_id ? targetFieldNames.emirates_id + '_file' : null;
+      if (tgtPassportFile) {
+        if (srcPassportFile && swUploadedFiles[srcPassportFile]) swUploadedFiles[tgtPassportFile] = Object.assign({}, swUploadedFiles[srcPassportFile]);
+      }
+      if (tgtEidFile) {
+        if (srcEidFile && swUploadedFiles[srcEidFile]) swUploadedFiles[tgtEidFile] = Object.assign({}, swUploadedFiles[srcEidFile]);
+      }
+    }
+    // Given a source slot key, propagate to all locked copies of it.
+    function swPropagateFromSource(sourceKey, sourceFieldNames) {
+      if (!sourceKey || swPropagating) return;
+      var copies = $$('[data-reused-from="' + sourceKey + '"]');
+      if (!copies.length) return;
+      swPropagating = true;
+      try {
+        copies.forEach(function (block) {
+          // The target's full_name field identifies its marker/field map.
+          var nameInp = $('input[name$="full_name"],input[name$="recipient"]', block) || $('input[name$="full_name"]', block);
+          var targetFullName = nameInp ? nameInp.getAttribute('name') : null;
+          // Re-derive target field names from the LIVE name field so
+          // add/remove/renumber can't leave a stale mapping.
+          var targetFieldNames = targetFullName ? swDeriveFieldNamesFromFullName(targetFullName) : null;
+          swPropagateOneTarget(sourceFieldNames, targetFieldNames);
+        });
+      } finally {
+        swPropagating = false;
+      }
+      swRenderUploadedState();
+      saveDraft();
+    }
+    // A source document changed: derive its slot and propagate docs to copies.
+    function swPropagateDocFromSourceFile(fileFieldName) {
+      if (!fileFieldName) return;
+      // Map the UPLOAD file field back to its owning identity slot.
+      var baseName = null;
+      if ('testator_a_passport_file' === fileFieldName) baseName = 'q5_passport';
+      else if ('testator_b_passport_file' === fileFieldName) baseName = 'q5_passport_b';
+      else baseName = fileFieldName.replace(/_file$/, ''); // e.g. executor_1_passport, q6_emirates_id
+      var slot = swSlotFromFieldName(baseName);
+      if (slot) swPropagateFromSource(slot.sourceKey, slot.fieldNames);
+    }
+    // Handle a source-field change: derive slot, propagate to its copies.
+    function swMaybePropagate(fieldName) {
+      var slot = swSlotFromFieldName(fieldName);
+      if (!slot) return;
+      // A locked copy is never a source: its input is readOnly (or a locked
+      // select), so a user edit can't originate here. The change listener
+      // only fires from an editable source, so no extra guard is needed —
+      // but skip if this slot has no live copies.
+      swPropagateFromSource(slot.sourceKey, slot.fieldNames);
     }
     /* ============================================================
        UPLOADED-FILE STATE RENDERING (Spec 3B, additive)
@@ -1832,6 +1944,16 @@
           if (t && 'INPUT' === t.tagName && 'file' === t.type && t.closest('.sw-q-page, form, [data-step]')) {
             if (validateFile(t)) swUploadFileInBackground(t);
           }
+        }),
+        // Live source→copy propagation: when an identity field at a SOURCE
+        // slot changes, push the change to all locked reused copies.
+        document.addEventListener('input', (e) => {
+          const t = e.target;
+          if (t && t.name && ('INPUT' === t.tagName || 'SELECT' === t.tagName || 'TEXTAREA' === t.tagName) && t.closest('.sw-q-page, form, [data-step]')) swMaybePropagate(t.name);
+        }),
+        document.addEventListener('change', (e) => {
+          const t = e.target;
+          if (t && t.name && 'SELECT' === t.tagName && t.closest('.sw-q-page, form, [data-step]')) swMaybePropagate(t.name);
         }),
         document.addEventListener('input', (e) => {
           const t = e.target;
