@@ -306,7 +306,7 @@
     function injectStyles() {
       if (document.getElementById('sw-q-runtime-styles')) return;
       const s = document.createElement('style');
-      ((s.id = 'sw-q-runtime-styles'), (s.textContent = `.sw-q-radio-row.sw-q-radio-checked{border:2px solid #1e4381!important;background-color:#eff4f8!important;padding:9px 13px!important}\n.sw-q-radio-row.sw-q-radio-checked>span{font-weight:600!important;color:#121f2f!important}\n.sw-q-invalid{border-color:#c0392b!important;background-color:#fdf2f0!important}\n.sw-q-field-error{color:#c0392b;font-size:12px;margin-top:6px;font-weight:600}\n.sw-q-error-banner{background:#fdf2f0;border:1px solid #c0392b;color:#c0392b;padding:14px 18px;border-radius:6px;margin-bottom:20px;font-size:13px;font-weight:600;line-height:1.5}\n.sw-q-block-remove{margin-top:12px;background:transparent;border:1px solid rgba(192,57,43,.3);color:#c0392b;padding:8px 14px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:4px;cursor:pointer}\n.sw-q-block-remove:hover{background:#fdf2f0}\n[data-add-block].sw-q-add-disabled{opacity:.4!important;pointer-events:none!important}\n.sw-q-excl-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}\n.sw-q-excl-tag{display:inline-flex;align-items:center;gap:8px;background:#eff4f8;border:1px solid #1e4381;color:#121f2f;border-radius:16px;padding:5px 6px 5px 12px;font-size:13px;font-weight:600;line-height:1}\n.sw-q-excl-tag-x{border:none;background:transparent;color:#1e4381;font-size:16px;font-weight:700;line-height:1;cursor:pointer;padding:0 4px}\n.sw-q-excl-tag-x:hover{color:#c0392b}\n.sw-q-uploaded-state{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:13px;color:#1e4381;font-weight:600;line-height:1.4}\n.sw-q-uploaded-state-icon{color:#27ae60;font-size:15px}\n.sw-q-uploaded-state-view{color:#1e4381;font-size:12px;text-decoration:underline}\n.sw-q-uploaded-state-remove{background:transparent;border:none;color:#c0392b;font-size:12px;text-decoration:underline;cursor:pointer;padding:0;font-family:inherit}\n.sw-q-uploaded-state-remove:hover{color:#922b21}`), document.head.appendChild(s));
+      ((s.id = 'sw-q-runtime-styles'), (s.textContent = `.sw-q-radio-row.sw-q-radio-checked{border:2px solid #1e4381!important;background-color:#eff4f8!important;padding:9px 13px!important}\n.sw-q-radio-row.sw-q-radio-checked>span{font-weight:600!important;color:#121f2f!important}\n.sw-q-invalid{border-color:#c0392b!important;background-color:#fdf2f0!important}\n.sw-q-field-error{color:#c0392b;font-size:12px;margin-top:6px;font-weight:600}\n.sw-q-error-banner{background:#fdf2f0;border:1px solid #c0392b;color:#c0392b;padding:14px 18px;border-radius:6px;margin-bottom:20px;font-size:13px;font-weight:600;line-height:1.5}\n.sw-q-block-remove{margin-top:12px;background:transparent;border:1px solid rgba(192,57,43,.3);color:#c0392b;padding:8px 14px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:4px;cursor:pointer}\n.sw-q-block-remove:hover{background:#fdf2f0}\n[data-add-block].sw-q-add-disabled{opacity:.4!important;pointer-events:none!important}\n.sw-q-excl-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}\n.sw-q-excl-tag{display:inline-flex;align-items:center;gap:8px;background:#eff4f8;border:1px solid #1e4381;color:#121f2f;border-radius:16px;padding:5px 6px 5px 12px;font-size:13px;font-weight:600;line-height:1}\n.sw-q-excl-tag-x{border:none;background:transparent;color:#1e4381;font-size:16px;font-weight:700;line-height:1;cursor:pointer;padding:0 4px}\n.sw-q-excl-tag-x:hover{color:#c0392b}\n.sw-q-uploaded-state{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:13px;color:#1e4381;font-weight:600;line-height:1.4}\n.sw-q-uploaded-state-icon{color:#27ae60;font-size:15px}\n.sw-q-uploaded-state-view{color:#1e4381;font-size:12px;text-decoration:underline}\n.sw-q-uploaded-state-remove{background:transparent;border:none;color:#c0392b;font-size:12px;text-decoration:underline;cursor:pointer;padding:0;font-family:inherit}\n.sw-q-uploaded-state-remove:hover{color:#922b21}\n.sw-q-locked{background-color:#f2f4f7!important;color:#5b6673!important;cursor:not-allowed!important;pointer-events:none}\n.sw-q-reuse-notice{background:#eff4f8;border:1px solid #1e4381;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;line-height:1.5;color:#121f2f}\n.sw-q-reuse-notice-title{font-weight:700;color:#1e4381;display:block;margin-bottom:4px}\n.sw-q-reuse-notice-sub{display:block;margin-bottom:10px}\n.sw-q-reuse-notice-btn{background:#1e4381;border:none;color:#fff;font-size:12px;font-weight:700;letter-spacing:.04em;padding:8px 14px;border-radius:4px;cursor:pointer;font-family:inherit}\n.sw-q-reuse-notice-btn:hover{background:#152f5c}\n.sw-q-reuse-highlight{outline:3px solid #1e4381!important;outline-offset:3px;transition:outline .2s}`), document.head.appendChild(s));
     }
     function updateRadioStates() {
       $$('.sw-q-radio-row').forEach((r) => {
@@ -332,6 +332,7 @@
         wireEidUploadListeners(),
         rebuildPersonDropdowns(),
         injectExcludedJurisdictionPickers(),
+        swReapplyReuseLocks(),
         swRenderUploadedState(),
         updateShareTotal(),
         window.scrollTo({ top: 0, behavior: 'smooth' }),
@@ -981,15 +982,20 @@
       if (data._uploadedFiles && 'object' == typeof data._uploadedFiles) {
         Object.assign(swUploadedFiles, data._uploadedFiles);
       }
+      // Restore reused-block markers so locks + notices can be re-applied.
+      if (data._reusedBlocks && 'object' == typeof data._reusedBlocks) {
+        Object.assign(swReusedBlocks, data._reusedBlocks);
+      }
       requestAnimationFrame(() => {
         (data._step && showStep(data._step),
           updateRadioStates(),
           applyConditionals(),
           rebuildPersonDropdowns(),
           injectExcludedJurisdictionPickers(),
+          swReapplyReuseLocks(),
           swRenderUploadedState(),
           requestAnimationFrame(() => {
-            (applyConditionals(), rebuildPersonDropdowns(), injectExcludedJurisdictionPickers(), swRenderUploadedState(), saveDraft());
+            (applyConditionals(), rebuildPersonDropdowns(), injectExcludedJurisdictionPickers(), swReapplyReuseLocks(), swRenderUploadedState(), saveDraft());
           }));
       });
     }
@@ -1041,6 +1047,7 @@
       pkg && (data._package = pkg);
       const ch = getChannel();
       if (Object.keys(swUploadedFiles).length) data._uploadedFiles = swUploadedFiles;
+      if (Object.keys(swReusedBlocks).length) data._reusedBlocks = swReusedBlocks;
       return (ch && (data._channel = ch), data);
     }
     async function shrinkImg(f) {
@@ -1200,23 +1207,29 @@
     function buildPersonRegistry() {
       var people = [];
       // Testators — passport file names are UPLOAD_MAP special cases.
+      // _sourceStep / _sourceScrollName let the "Take me back" button find
+      // where the person was originally entered.
       var tA = swReadPerson(swTestatorFields(''), 'Testator A');
       tA._passportFileField = 'testator_a_passport_file';
       tA._eidFileField = 'q6_emirates_id_file';
+      tA._sourceStep = 1;
+      tA._sourceScrollName = 'q1_full_name';
       people.push(tA);
       if (isCouplesMode()) {
         var tB = swReadPerson(swTestatorFields('_b'), 'Testator B');
         tB._passportFileField = 'testator_b_passport_file';
         tB._eidFileField = 'q6_emirates_id_b_file';
+        tB._sourceStep = 9;
+        tB._sourceScrollName = 'q1_full_name_b';
         people.push(tB);
       }
       // Repeatable person blocks (hyphenated data-block, underscored field prefix)
       var blockSpecs = [
-        { db: 'executor', prefix: 'executor', label: 'Executor' },
-        { db: 'executor-b', prefix: 'executor_b', label: 'Executor (B)' },
-        { db: 'sub-executor', prefix: 'sub_executor', label: 'Substitute executor' },
-        { db: 'primary-beneficiary', prefix: 'primary_ben', label: 'Beneficiary' },
-        { db: 'secondary-beneficiary', prefix: 'secondary_ben', label: 'Secondary beneficiary' },
+        { db: 'executor', prefix: 'executor', label: 'Executor', step: 4 },
+        { db: 'executor-b', prefix: 'executor_b', label: 'Executor (B)', step: 4 },
+        { db: 'sub-executor', prefix: 'sub_executor', label: 'Substitute executor', step: 4 },
+        { db: 'primary-beneficiary', prefix: 'primary_ben', label: 'Beneficiary', step: 6 },
+        { db: 'secondary-beneficiary', prefix: 'secondary_ben', label: 'Secondary beneficiary', step: 6 },
       ];
       blockSpecs.forEach(function (spec) {
         swBlockIndices(spec.db).forEach(function (idx) {
@@ -1224,6 +1237,8 @@
           var p = swReadPerson(fn, spec.label + ' ' + idx);
           p._passportFileField = fn.passport ? fn.passport + '_file' : null;
           p._eidFileField = fn.emirates_id ? fn.emirates_id + '_file' : null;
+          p._sourceStep = spec.step;
+          p._sourceScrollName = fn.full_name;
           people.push(p);
         });
       });
@@ -1233,6 +1248,8 @@
         var p = swReadPerson(fn, 'Child ' + idx);
         p._passportFileField = fn.passport ? fn.passport + '_file' : null;
         p._eidFileField = fn.emirates_id ? fn.emirates_id + '_file' : null;
+        p._sourceStep = 6;
+        p._sourceScrollName = fn.full_name;
         people.push(p);
       });
       // Fixed guardian sections
@@ -1247,6 +1264,8 @@
         var p = swReadPerson(fn, spec.label);
         p._passportFileField = fn.passport ? fn.passport + '_file' : null;
         p._eidFileField = fn.emirates_id ? fn.emirates_id + '_file' : null;
+        p._sourceStep = 7;
+        p._sourceScrollName = fn.full_name;
         people.push(p);
       });
       // Keep only people with a name OR passport; dedup by key.
@@ -1297,6 +1316,8 @@
       var targetPassportFile = targetFieldNames && targetFieldNames.passport ? targetFieldNames.passport + '_file' : null;
       var targetEidFile = targetFieldNames && targetFieldNames.emirates_id ? targetFieldNames.emirates_id + '_file' : null;
       if ('' === idx) {
+        // Deselect: unlock identity fields + docs, clear, remove notice.
+        swClearReuseLock(targetFieldNames);
         swPopulateTarget(fields, null); // clear text fields for fresh entry
         // Also clear any carried doc references so the block isn't stale.
         if (targetPassportFile) delete swUploadedFiles[targetPassportFile];
@@ -1316,6 +1337,8 @@
       if (targetEidFile && person._eidFileField && swUploadedFiles[person._eidFileField]) {
         swUploadedFiles[targetEidFile] = Object.assign({}, swUploadedFiles[person._eidFileField]);
       }
+      // Lock the identity fields + carried docs and show the notice.
+      swApplyReuseLock(targetFieldNames, person);
       swRenderUploadedState();
       saveDraft();
     }
@@ -1538,6 +1561,176 @@
       swExclRebuildAll();
     }
     /* ============================================================
+       REUSED-PERSON LOCKING (additive)
+       When a person is reused into a role, their IDENTITY fields are
+       populated AND locked (read-only) in that location; role-specific
+       fields (share, bequest type/details) stay editable. A notice with
+       a "Take me back to edit" button lets the client jump to the source.
+       Only the whitelisted identity fields are ever locked.
+       ============================================================ */
+    // Attributes that count as identity (subset of SW_PERSON_ATTRS present
+    // on the target). Only these field names are ever locked.
+    var SW_LOCK_ATTRS = ['full_name', 'relationship', 'nationality', 'dob', 'pob', 'passport', 'emirates_id'];
+    // Module state: which target blocks are currently "reused" (keyed by the
+    // block's full_name field name — stable per block instance). Persisted to
+    // the draft as _reusedBlocks and re-applied on restore.
+    var swReusedBlocks = {}; // { [targetFullNameField]: { sourceStep, sourceScrollName } }
+    // File fields currently locked (carried docs that must not be replaced).
+    var swLockedFileFields = {};
+    // Locate the DOM container for a target block from its full_name field.
+    function swReuseContainer(fullNameField) {
+      var el = $('[name="' + fullNameField + '"]');
+      if (!el) return null;
+      return el.closest('[data-block]') || (el.closest('.sw-q-field') && el.closest('.sw-q-field').parentNode) || el.parentNode;
+    }
+    // Lock one field element (readOnly for text/date; guarded for selects).
+    function swLockFieldEl(el) {
+      if (!el) return;
+      el.classList.add('sw-q-locked');
+      if ('SELECT' === el.tagName) {
+        // A <select> can't be readOnly; keep it enabled (so value submits)
+        // but revert any change and block interaction.
+        if (!el._swLockGuard) {
+          el._swLockGuard = function (e) {
+            e.preventDefault();
+          };
+          el._swLockRevert = function () {
+            if (null != el._swLockedValue) el.value = el._swLockedValue;
+          };
+          el._swLockedValue = el.value;
+          el.addEventListener('mousedown', el._swLockGuard);
+          el.addEventListener('keydown', el._swLockGuard);
+          el.addEventListener('change', el._swLockRevert);
+        } else {
+          el._swLockedValue = el.value;
+        }
+      } else {
+        el.readOnly = true;
+      }
+    }
+    // Unlock one field element.
+    function swUnlockFieldEl(el) {
+      if (!el) return;
+      el.classList.remove('sw-q-locked');
+      if ('SELECT' === el.tagName) {
+        if (el._swLockGuard) {
+          el.removeEventListener('mousedown', el._swLockGuard);
+          el.removeEventListener('keydown', el._swLockGuard);
+          el.removeEventListener('change', el._swLockRevert);
+          el._swLockGuard = null;
+          el._swLockRevert = null;
+          el._swLockedValue = null;
+        }
+      } else {
+        el.readOnly = false;
+      }
+    }
+    // Lock all whitelisted identity fields of a target (from resolved names).
+    function swLockIdentityFields(fieldNames, lock) {
+      if (!fieldNames) return;
+      SW_LOCK_ATTRS.forEach(function (a) {
+        if (!fieldNames[a]) return; // target lacks this identity field
+        var el = $('[name="' + fieldNames[a] + '"]');
+        if (!el || 'file' === el.type) return;
+        lock ? swLockFieldEl(el) : swUnlockFieldEl(el);
+      });
+    }
+    // Insert (or refresh) the reuse notice at the top of the block.
+    function swInsertReuseNotice(container, sourceStep, sourceScrollName) {
+      if (!container) return;
+      if (container.querySelector(':scope > .sw-q-reuse-notice')) return; // guard dup
+      var notice = document.createElement('div');
+      notice.className = 'sw-q-reuse-notice';
+      var title = document.createElement('span');
+      ((title.className = 'sw-q-reuse-notice-title'), (title.textContent = 'These details are locked because this person was already added elsewhere.'));
+      var sub = document.createElement('span');
+      ((sub.className = 'sw-q-reuse-notice-sub'), (sub.textContent = 'To change their name, ID or other personal details, edit them where you first added this person.'));
+      var btn = document.createElement('button');
+      ((btn.type = 'button'), (btn.className = 'sw-q-reuse-notice-btn'), (btn.textContent = 'Take me back to edit'));
+      btn.addEventListener('click', function () {
+        swNavigateToSource(sourceStep, sourceScrollName);
+      });
+      (notice.appendChild(title), notice.appendChild(sub), notice.appendChild(btn));
+      container.insertBefore(notice, container.firstChild);
+    }
+    function swRemoveReuseNotice(container) {
+      if (!container) return;
+      var n = container.querySelector(':scope > .sw-q-reuse-notice');
+      if (n) n.remove();
+    }
+    // Navigate to the source person's step and scroll/highlight their block.
+    function swNavigateToSource(step, scrollName) {
+      if (step) showStep(step);
+      requestAnimationFrame(function () {
+        var el = scrollName ? $('[name="' + scrollName + '"]') : null;
+        var target = el ? el.closest('[data-block]') || el.closest('.sw-q-field') || el : null;
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          target.classList.add('sw-q-reuse-highlight');
+          setTimeout(function () {
+            target.classList.remove('sw-q-reuse-highlight');
+          }, 2000);
+        }
+      });
+    }
+    // Apply the full locked+notice+doc-lock state for a reused block.
+    function swApplyReuseLock(fieldNames, person) {
+      if (!fieldNames || !fieldNames.full_name) return;
+      swLockIdentityFields(fieldNames, true);
+      // Lock carried document fields (no Remove / no replace).
+      var passportFile = fieldNames.passport ? fieldNames.passport + '_file' : null;
+      var eidFile = fieldNames.emirates_id ? fieldNames.emirates_id + '_file' : null;
+      if (passportFile) swLockedFileFields[passportFile] = true;
+      if (eidFile) swLockedFileFields[eidFile] = true;
+      var container = swReuseContainer(fieldNames.full_name);
+      var step = person ? person._sourceStep : swReusedBlocks[fieldNames.full_name] && swReusedBlocks[fieldNames.full_name].sourceStep;
+      var scrollName = person ? person._sourceScrollName : swReusedBlocks[fieldNames.full_name] && swReusedBlocks[fieldNames.full_name].sourceScrollName;
+      swInsertReuseNotice(container, step, scrollName);
+      swReusedBlocks[fieldNames.full_name] = { sourceStep: step, sourceScrollName: scrollName };
+    }
+    // Remove the locked state for a reused block.
+    function swClearReuseLock(fieldNames) {
+      if (!fieldNames || !fieldNames.full_name) return;
+      swLockIdentityFields(fieldNames, false);
+      var passportFile = fieldNames.passport ? fieldNames.passport + '_file' : null;
+      var eidFile = fieldNames.emirates_id ? fieldNames.emirates_id + '_file' : null;
+      if (passportFile) delete swLockedFileFields[passportFile];
+      if (eidFile) delete swLockedFileFields[eidFile];
+      swRemoveReuseNotice(swReuseContainer(fieldNames.full_name));
+      delete swReusedBlocks[fieldNames.full_name];
+    }
+    // Re-apply all reuse locks from swReusedBlocks (after draft restore /
+    // dropdown rebuild). Re-derives the target field names from the
+    // full_name field's block so indices stay correct.
+    function swReapplyReuseLocks() {
+      Object.keys(swReusedBlocks).forEach(function (fullNameField) {
+        // Derive sibling identity field names from the full_name field name.
+        var fieldNames = swDeriveFieldNamesFromFullName(fullNameField);
+        if (fieldNames) swApplyReuseLock(fieldNames, null);
+      });
+    }
+    // Given a full_name field name, reconstruct the identity field map for
+    // that role (handles blocks, bequests, guardians, testators).
+    function swDeriveFieldNamesFromFullName(fullNameField) {
+      if (!fullNameField) return null;
+      // Bequest: bequest_N_recipient
+      var mB = fullNameField.match(/^bequest_(\d+)_recipient$/);
+      if (mB) return { full_name: 'bequest_' + mB[1] + '_recipient', relationship: 'bequest_' + mB[1] + '_relationship', nationality: null, dob: null, pob: null, passport: null, emirates_id: null };
+      // Testators
+      if ('q1_full_name' === fullNameField) return swTestatorFields('');
+      if ('q1_full_name_b' === fullNameField) return swTestatorFields('_b');
+      // Blocks: <prefix>_<N>_full_name
+      var mBlk = fullNameField.match(/^(.*)_(\d+)_full_name$/);
+      if (mBlk) {
+        if ('child' === mBlk[1]) return swChildFields(mBlk[2]);
+        return swBlockFields(mBlk[1], mBlk[2]);
+      }
+      // Guardians: <prefix>_full_name
+      var mG = fullNameField.match(/^(.*)_full_name$/);
+      if (mG) return swGuardianFields(mG[1]);
+      return null;
+    }
+    /* ============================================================
        UPLOADED-FILE STATE RENDERING (Spec 3B, additive)
        For every file input whose name is in swUploadedFiles, renders
        (once, guarded) a status row showing ✓ filename + View link
@@ -1554,6 +1747,8 @@
         // Remove any existing status row so it can be refreshed.
         var existing = wrap.querySelector('.sw-q-uploaded-state');
         if (existing) existing.remove();
+        // If this field is no longer locked, ensure its input is visible again.
+        if (!swLockedFileFields[name] && 'none' === inp.style.display) inp.style.display = '';
         // If no reference recorded, nothing to show.
         if (!ref || !ref.filename) return;
         var row = document.createElement('div');
@@ -1573,17 +1768,26 @@
             (viewLink.textContent = 'View'));
           row.appendChild(viewLink);
         }
-        // Remove button: detaches the file from the form (R2 lifecycle handles actual deletion).
-        var removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'sw-q-uploaded-state-remove';
-        removeBtn.textContent = 'Remove';
-        removeBtn.addEventListener('click', function () {
-          delete swUploadedFiles[name];
-          row.remove();
-          saveDraft();
-        });
-        row.appendChild(removeBtn);
+        var isLocked = !!swLockedFileFields[name];
+        if (isLocked) {
+          // Carried doc from a reused person: cannot be replaced here.
+          // Hide the file input; do NOT show a Remove button.
+          inp.style.display = 'none';
+        } else {
+          // Ensure the input is visible/usable (e.g. after unlock).
+          if ('none' === inp.style.display) inp.style.display = '';
+          // Remove button: detaches the file from the form (R2 lifecycle handles actual deletion).
+          var removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'sw-q-uploaded-state-remove';
+          removeBtn.textContent = 'Remove';
+          removeBtn.addEventListener('click', function () {
+            delete swUploadedFiles[name];
+            row.remove();
+            saveDraft();
+          });
+          row.appendChild(removeBtn);
+        }
         // Insert after the file input so it sits below it.
         inp.parentNode.insertBefore(row, inp.nextSibling);
       });
