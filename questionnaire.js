@@ -1689,8 +1689,13 @@
       // Stable source-slot key (link by SLOT, not by name). Derived from the
       // source person's full_name field (its _sourceScrollName).
       var sourceKey = person ? (swSlotFromFieldName(person._sourceScrollName) || {}).sourceKey : existing && existing.sourceKey;
+      // When re-selecting a DIFFERENT person into this block, remove the old
+      // notice first so its "Take me back" button re-wires to the NEW source.
+      // (On restore person is null; keep the existing notice as-is.)
+      if (person) swRemoveReuseNotice(container);
       swInsertReuseNotice(container, step, scrollName);
-      // Tag the target block so propagation can find it by source slot.
+      // Tag the target block so propagation can find it by source slot
+      // (always overwrite so switching A->B fully re-links to B).
       if (container && sourceKey) container.setAttribute('data-reused-from', sourceKey);
       swReusedBlocks[fieldNames.full_name] = { sourceStep: step, sourceScrollName: scrollName, sourceKey: sourceKey, targetFieldNames: fieldNames };
     }
