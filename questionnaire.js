@@ -912,6 +912,15 @@
         const k = getStorageKey();
         if (!k) return;
         const d = collectFormData();
+        // Preserve a one-time creation timestamp so the 30-day expiry runs
+        // from when the draft was FIRST created, not from each save.
+        try {
+          const existingRaw = localStorage.getItem(k);
+          const existing = existingRaw ? JSON.parse(existingRaw) : null;
+          d._createdAt = existing && existing._createdAt ? existing._createdAt : new Date().toISOString();
+        } catch (e) {
+          d._createdAt = new Date().toISOString();
+        }
         ((d._step = currentStep), (d._savedAt = new Date().toISOString()), localStorage.setItem(k, JSON.stringify(d)));
       } catch (e) {}
     }
@@ -931,7 +940,7 @@
         const r = localStorage.getItem(k);
         if (!r) return null;
         const d = JSON.parse(r),
-          a = d._savedAt ? Date.now() - new Date(d._savedAt).getTime() : 0;
+          a = d._createdAt ? Date.now() - new Date(d._createdAt).getTime() : 0;
         return a > 30 * 24 * 60 * 60 * 1e3 ? (localStorage.removeItem(k), null) : hasRealAnswers(d) ? d : (localStorage.removeItem(k), null);
       } catch (e) {
         return null;
@@ -1410,6 +1419,15 @@
         var resolver = function () {
           var idx = block.dataset.blockIndex || '1';
           return { full_name: 'bequest_' + idx + '_recipient', relationship: 'bequest_' + idx + '_relationship', nationality: null, dob: null, pob: null, passport: null, emirates_id: null };
+        };
+        swInjectDropdown(block, resolver, block.firstChild);
+      });
+      // Child blocks: reuse a person already entered (e.g. a beneficiary).
+      // Children have full_name, nationality, dob, passport, emirates_id;
+      // relationship and pob are null (swChildFields handles this).
+      $$('[data-block="child"]').forEach(function (block) {
+        var resolver = function () {
+          return swChildFields(block.dataset.blockIndex || '1');
         };
         swInjectDropdown(block, resolver, block.firstChild);
       });
@@ -1910,7 +1928,7 @@
       });
     }
     function saveAndExit() {
-      (clearTimeout(window._sw_save_t), saveDraft(), alert('Progress saved. Return within 7 days. Files must be re-uploaded.'), (window.location.href = '/wills-services'));
+      (clearTimeout(window._sw_save_t), saveDraft(), alert('Progress saved. You can return within 30 days. Your answers and uploaded documents are kept until then.'), (window.location.href = '/wills-services'));
     }
     function init() {
       if ('silver' === getPackage()) {
