@@ -918,21 +918,58 @@
     function renumberBlocks(blockType) {
       const list = $('[data-block-list="' + blockType + '"]');
       if (!list) return;
-      // Field names are about to change; purge stale reuse/lock/doc markers
-      // for every block of this type so a marker can't re-apply to a block
-      // that inherits an old name. Genuine reuses re-establish on next
-      // rebuildPersonDropdowns / user action.
-      $$('[data-block="' + blockType + '"]', list).forEach((block) => swPurgeBlockState(block));
-      list &&
-        $$('[data-block="' + blockType + '"]', list).forEach((block, i) => {
-          const newIdx = i + 1;
-          block.dataset.blockIndex = newIdx;
-          const title = $('.sw-q-block-title', block);
-          (title && (title.textContent = title.textContent.replace(/\d+/, newIdx)),
-            $$('input,textarea,select', block).forEach((input) => {
-              input.name && (input.name = input.name.replace(/_\d+_/, '_' + newIdx + '_').replace(/_\d+$/, '_' + newIdx));
-            }));
+      const blocks = $$('[data-block="' + blockType + '"]', list);
+      // Snapshot per-block reuse/lock/doc state BEFORE field names change,
+      // keyed by the block ELEMENT, so it survives renaming and is re-keyed
+      // to the new field names below. This avoids both stale markers (from a
+      // removed block) and lost state (on surviving blocks incl. sources).
+      const snapshots = blocks.map(function (block) {
+        const snap = { block: block, reused: {}, locked: {}, uploaded: {} };
+        $$('input,select,textarea', block).forEach(function (el) {
+          const n = el.getAttribute && el.getAttribute('name');
+          if (!n) return;
+          if (n in swReusedBlocks) snap.reused[n] = swReusedBlocks[n];
+          [n, n + '_file'].forEach(function (fn) {
+            if (fn in swLockedFileFields) snap.locked[fn] = swLockedFileFields[fn];
+            if (fn in swUploadedFiles) snap.uploaded[fn] = swUploadedFiles[fn];
+          });
         });
+        return snap;
+      });
+      // Purge ALL of this type's state so no old-index key lingers.
+      blocks.forEach(function (block) {
+        swPurgeBlockState(block);
+      });
+      // Renumber DOM (block index, title, field names) and re-key the
+      // snapshot state onto the new field names via a shared renamer.
+      const rename = function (n, newIdx) {
+        return n ? n.replace(/_\d+_/, '_' + newIdx + '_').replace(/_\d+$/, '_' + newIdx) : n;
+      };
+      blocks.forEach(function (block, i) {
+        const newIdx = i + 1;
+        block.dataset.blockIndex = newIdx;
+        const title = $('.sw-q-block-title', block);
+        if (title) title.textContent = title.textContent.replace(/\d+/, newIdx);
+        const snap = snapshots[i];
+        $$('input,textarea,select', block).forEach(function (input) {
+          const oldName = input.getAttribute('name');
+          if (!oldName) return;
+          const newName = rename(oldName, newIdx);
+          input.name = newName;
+          // Re-key any snapshot state from the old name to the new name.
+          if (snap.reused[oldName]) swReusedBlocks[newName] = snap.reused[oldName];
+          [oldName, oldName + '_file'].forEach(function (oldFn) {
+            const newFn = rename(oldFn, newIdx);
+            if (snap.locked[oldFn]) swLockedFileFields[newFn] = snap.locked[oldFn];
+            if (snap.uploaded[oldFn]) swUploadedFiles[newFn] = snap.uploaded[oldFn];
+          });
+        });
+      });
+      // Rebuild locked-reuse + carried-doc rendering for surviving reused
+      // blocks (re-tag data-reused-from / notice keyed to new names), then
+      // re-render doc rows so carried docs persist through the renumber.
+      swRebuildReusedBlockState();
+      swRenderUploadedState();
     }
     function saveDraft() {
       try {
@@ -1932,6 +1969,55 @@
       // only fires from an editable source, so no extra guard is needed —
       // but skip if this slot has no live copies.
       swPropagateFromSource(slot.sourceKey, slot.fieldNames);
+    }
+    // Resolve the SOURCE identity field-name map from a stable sourceKey
+    // (the reverse of the sourceKey derivation in swSlotFromFieldName).
+    function swFieldsFromSourceKey(sourceKey) {
+      if (!sourceKey) return null;
+      var parts = sourceKey.split(':'),
+        kind = parts[0],
+        id = parts[1];
+      if ('testator' === kind) return swTestatorFields('a' === id ? '' : '_b');
+      if ('guardian' === kind) return swGuardianFields(id);
+      if ('bequest' === kind) return { full_name: 'bequest_' + id + '_recipient', relationship: 'bequest_' + id + '_relationship', nationality: null, dob: null, pob: null, passport: null, emirates_id: null };
+      if ('child' === kind) return swChildFields(id);
+      // Repeatable blocks: executor / executor_b / sub_executor / primary_ben / secondary_ben
+      return swBlockFields(kind, id);
+    }
+    // Rebuild locked-reuse + carried-doc state for every surviving reused
+    // block from its data-reused-from source slot. Used after renumber (which
+    // purges + renames field names) so surviving copies keep their carried
+    // docs, lock, and notice — re-keyed to their NEW field names.
+    function swRebuildReusedBlockState() {
+      $$('[data-reused-from]').forEach(function (block) {
+        var sourceKey = block.getAttribute('data-reused-from');
+        var sourceFieldNames = swFieldsFromSourceKey(sourceKey);
+        // Target field names from the block's LIVE (renumbered) name field.
+        var nameInp = $('input[name$="full_name"],input[name$="recipient"],input[name="q40_incap_guardian_name"]', block) || $('input[name$="full_name"]', block);
+        var targetFullName = nameInp ? nameInp.getAttribute('name') : null;
+        var targetFieldNames = targetFullName ? swDeriveFieldNamesFromFullName(targetFullName) : null;
+        if (!sourceFieldNames || !targetFieldNames) return;
+        // Re-copy identity values + carried docs from source to this target.
+        swPropagateOneTarget(sourceFieldNames, targetFieldNames);
+        // Seed the marker (keyed to the NEW full_name) with the source info
+        // so swApplyReuseLock re-tags data-reused-from and wires a working
+        // "Take me back" button. Derive step/scroll from the source slot.
+        var srcStep = swSourceStepFromKey(sourceKey);
+        swReusedBlocks[targetFieldNames.full_name] = { sourceStep: srcStep, sourceScrollName: sourceFieldNames.full_name, sourceKey: sourceKey, targetFieldNames: targetFieldNames };
+        swApplyReuseLock(targetFieldNames, null);
+      });
+    }
+    // Map a source slot key to the step where that source lives (for the
+    // "Take me back" button). Mirrors the _sourceStep values in the registry.
+    function swSourceStepFromKey(sourceKey) {
+      if (!sourceKey) return null;
+      var kind = sourceKey.split(':')[0];
+      if ('testator' === kind) return sourceKey === 'testator:b' ? 9 : 1;
+      if ('executor' === kind || 'executor_b' === kind || 'sub_executor' === kind) return 4;
+      if ('primary_ben' === kind || 'secondary_ben' === kind || 'child' === kind) return 6;
+      if ('guardian' === kind) return 7;
+      if ('bequest' === kind) return 6;
+      return null;
     }
     // Ensure the .sw-q-upload-field + <input type="file"> for a given FILE
     // field name exists in the DOM, so a carried-doc row can always render
