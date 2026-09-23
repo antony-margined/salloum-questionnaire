@@ -886,6 +886,8 @@
         $$('input,select,textarea', clone).forEach((el) => {
           ((el.readOnly = !1), (el._swLockGuard = null), (el._swLockRevert = null), (el._swLockedValue = null));
         }),
+        // Clear any inherited state maps for the clone's (new-index) names.
+        swPurgeBlockState(clone),
         $$('.sw-q-radio-row', clone).forEach((r) => r.classList.remove('sw-q-radio-checked', 'sw-q-invalid')),
         $$('.sw-q-field-error', clone).forEach((e) => e.remove()),
         !$('.sw-q-block-remove', clone))
@@ -895,7 +897,7 @@
           (removeBtn.className = 'sw-q-block-remove'),
           (removeBtn.textContent = '× Remove'),
           removeBtn.addEventListener('click', () => {
-            (clone.remove(), renumberBlocks(blockType), applyConditionals(), saveDraft());
+            (swPurgeBlockState(clone), clone.remove(), renumberBlocks(blockType), applyConditionals(), saveDraft());
           }),
           clone.appendChild(removeBtn));
       }
@@ -903,6 +905,12 @@
     }
     function renumberBlocks(blockType) {
       const list = $('[data-block-list="' + blockType + '"]');
+      if (!list) return;
+      // Field names are about to change; purge stale reuse/lock/doc markers
+      // for every block of this type so a marker can't re-apply to a block
+      // that inherits an old name. Genuine reuses re-establish on next
+      // rebuildPersonDropdowns / user action.
+      $$('[data-block="' + blockType + '"]', list).forEach((block) => swPurgeBlockState(block));
       list &&
         $$('[data-block="' + blockType + '"]', list).forEach((block, i) => {
           const newIdx = i + 1;
@@ -1617,6 +1625,22 @@
     var swReusedBlocks = {}; // { [targetFullNameField]: { sourceStep, sourceScrollName } }
     // File fields currently locked (carried docs that must not be replaced).
     var swLockedFileFields = {};
+    // Purge all reuse/lock/doc markers keyed by a block's field names. Used
+    // on block remove/renumber and clone cleanup so a stale marker never
+    // re-applies to a different block instance that inherited a field name.
+    function swPurgeBlockState(block) {
+      if (!block) return;
+      $$('input,select,textarea', block).forEach(function (el) {
+        var n = el.getAttribute && el.getAttribute('name');
+        if (!n) return;
+        delete swReusedBlocks[n];
+        delete swLockedFileFields[n];
+        delete swUploadedFiles[n];
+        // also the _file variants for identity fields
+        delete swLockedFileFields[n + '_file'];
+        delete swUploadedFiles[n + '_file'];
+      });
+    }
     // Locate the DOM container for a target block from its full_name field.
     function swReuseContainer(fullNameField) {
       var el = $('[name="' + fullNameField + '"]');
@@ -1757,7 +1781,14 @@
     // full_name field's block so indices stay correct.
     function swReapplyReuseLocks() {
       Object.keys(swReusedBlocks).forEach(function (fullNameField) {
-        // Derive sibling identity field names from the full_name field name.
+        // Only re-lock if the block still exists AND its full_name field is
+        // genuinely populated. Otherwise the marker is stale (block removed
+        // or renumbered) — drop it instead of locking the wrong block.
+        var el = $('[name="' + fullNameField + '"]');
+        if (!el || !(el.value && el.value.trim())) {
+          delete swReusedBlocks[fullNameField];
+          return;
+        }
         var fieldNames = swDeriveFieldNamesFromFullName(fullNameField);
         if (fieldNames) swApplyReuseLock(fieldNames, null);
       });
