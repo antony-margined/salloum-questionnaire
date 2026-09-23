@@ -300,17 +300,26 @@
     function wireCouplesMode() {
       (injectCouplesStyles(), tagBSideFields(), isCouplesMode() && document.body.classList.add('sw-couples-mode'));
     }
+    // Resolve the option-label array for a radio group. Falls back to a
+    // pattern for repeatable bequest type groups (bequest_N_type), which
+    // aren't individually registered in RADIO_OPTIONS but share the same
+    // 4 options. Ensures the LABEL (not the index) is saved/submitted.
+    function swRadioOptionsFor(name) {
+      if (RADIO_OPTIONS[name]) return RADIO_OPTIONS[name];
+      if (/^bequest_\d+_type$/.test(name)) return ['percentage', 'cash', 'asset', 'other'];
+      return null;
+    }
     function getRadioValue(name) {
       const i = $$('input[type="radio"][name="' + name + '"]');
       if (!i.length) return null;
       const c = i.findIndex((r) => r.checked);
       if (-1 === c) return null;
-      const m = RADIO_OPTIONS[name];
+      const m = swRadioOptionsFor(name);
       return m ? m[c] || null : String(c);
     }
     function setRadioValue(name, v) {
       const i = $$('input[type="radio"][name="' + name + '"]'),
-        m = RADIO_OPTIONS[name];
+        m = swRadioOptionsFor(name);
       if (!m) return;
       const x = m.indexOf(v);
       x < 0 || x >= i.length || (i[x].checked = !0);
@@ -1045,7 +1054,7 @@
       Object.entries(data).forEach(([key, value]) => {
         if (key.startsWith('_')) return;
         if ('case_id' === key || 'submitted_at' === key) return;
-        if (RADIO_OPTIONS[key] && 'string' == typeof value) return void setRadioValue(key, value);
+        if (swRadioOptionsFor(key) && 'string' == typeof value) return void setRadioValue(key, value);
         const fields = $$('[name="' + key + '"]');
         fields.length &&
           (Array.isArray(value) && fields.length > 1 && 'checkbox' === fields[0].type
