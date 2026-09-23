@@ -17,7 +17,7 @@
       STRICT_AGE_CHANNELS = ['difc', 'adgm'],
       MIN_EXECUTOR_AGE = 18,
       MIN_GUARDIAN_AGE = 18,
-      MAX_BLOCKS = { executor: 2, 'executor-b': 2, substitute_executor: 2, 'sub-executor': 2, guardian: 1, sub_guardian: 1, interim_guardian: 1, sub_interim_guardian: 1 },
+      MAX_BLOCKS = {},
       MAX_FILE_MB = 10,
       FILE_TYPES = 'application/pdf,image/jpeg,image/jpg,image/png,image/webp,image/heic',
       UPLOAD_MAP = [
