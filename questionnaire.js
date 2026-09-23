@@ -879,6 +879,13 @@
         }),
         $$('.sw-q-upload-field', clone).forEach((u) => u.remove()),
         $$('.sw-q-person-picker', clone).forEach((u) => u.remove()),
+        // Reset any locked-reuse state so the new block starts fresh/editable.
+        $$('.sw-q-reuse-notice', clone).forEach((n) => n.remove()),
+        clone.removeAttribute('data-reused-from'),
+        $$('.sw-q-locked', clone).forEach((el) => el.classList.remove('sw-q-locked')),
+        $$('input,select,textarea', clone).forEach((el) => {
+          ((el.readOnly = !1), (el._swLockGuard = null), (el._swLockRevert = null), (el._swLockedValue = null));
+        }),
         $$('.sw-q-radio-row', clone).forEach((r) => r.classList.remove('sw-q-radio-checked', 'sw-q-invalid')),
         $$('.sw-q-field-error', clone).forEach((e) => e.remove()),
         !$('.sw-q-block-remove', clone))
