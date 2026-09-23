@@ -1207,6 +1207,11 @@
       // prefix e.g. 'perm_guardian', 'sub_perm', 'interim', 'sub_interim'
       return { full_name: prefix + '_full_name', relationship: prefix + '_relationship', nationality: prefix + '_nationality', dob: prefix + '_dob', pob: prefix + '_pob', passport: prefix + '_passport', emirates_id: prefix + '_emirates_id' };
     }
+    // Incapacity guardian ("a different person") — non-standard field names,
+    // no place-of-birth, no Emirates ID.
+    function swIncapGuardianFields() {
+      return { full_name: 'q40_incap_guardian_name', relationship: 'q40_incap_guardian_rel', nationality: 'q40_incap_guardian_nat', dob: 'q40_incap_guardian_dob', pob: null, passport: 'q40_incap_guardian_passport', emirates_id: null };
+    }
     function swTestatorFields(suffix) {
       // Testators have NO relationship. pob = q4_pob. suffix '' or '_b'.
       return { full_name: 'q1_full_name' + suffix, relationship: null, nationality: 'q2_nationality' + suffix, dob: 'q3_dob' + suffix, pob: 'q4_pob' + suffix, passport: 'q5_passport' + suffix, emirates_id: 'q6_emirates_id' + suffix };
@@ -1449,6 +1454,16 @@
         if (!container) return;
         swInjectDropdown(container, swGuardianFields(prefix), field);
       });
+      // Incapacity guardian ("a different person") section. Uses the same
+      // container resolution as swReuseContainer so the dropdown, notice and
+      // data-reused-from tag all land on the same block. swInjectDropdown
+      // guards duplicates. Visibility is handled by the existing conditional
+      // (hidden on Silver / when "executors named above" is chosen).
+      var incapNameInp = $('[name="q40_incap_guardian_name"]');
+      if (incapNameInp) {
+        var incapContainer = swReuseContainer('q40_incap_guardian_name');
+        if (incapContainer) swInjectDropdown(incapContainer, swIncapGuardianFields(), incapContainer.firstChild);
+      }
     }
     /* ============================================================
        EXCLUDED JURISDICTIONS MULTI-SELECT (additive)
@@ -1606,7 +1621,7 @@
     function swReuseContainer(fullNameField) {
       var el = $('[name="' + fullNameField + '"]');
       if (!el) return null;
-      return el.closest('[data-block]') || (el.closest('.sw-q-field') && el.closest('.sw-q-field').parentNode) || el.parentNode;
+      return el.closest('[data-block]') || el.closest('[data-conditional="incap-guardian-other"]') || (el.closest('.sw-q-field') && el.closest('.sw-q-field').parentNode) || el.parentNode;
     }
     // Lock one field element (readOnly for text/date; guarded for selects).
     function swLockFieldEl(el) {
@@ -1757,6 +1772,8 @@
       // Testators
       if ('q1_full_name' === fullNameField) return swTestatorFields('');
       if ('q1_full_name_b' === fullNameField) return swTestatorFields('_b');
+      // Incapacity guardian (non-standard names).
+      if ('q40_incap_guardian_name' === fullNameField) return swIncapGuardianFields();
       // Blocks: <prefix>_<N>_full_name
       var mBlk = fullNameField.match(/^(.*)_(\d+)_full_name$/);
       if (mBlk) {
@@ -1838,7 +1855,8 @@
       try {
         copies.forEach(function (block) {
           // The target's full_name field identifies its marker/field map.
-          var nameInp = $('input[name$="full_name"],input[name$="recipient"]', block) || $('input[name$="full_name"]', block);
+          // Also matches bequest recipient and the incap guardian name field.
+          var nameInp = $('input[name$="full_name"],input[name$="recipient"],input[name="q40_incap_guardian_name"]', block) || $('input[name$="full_name"]', block);
           var targetFullName = nameInp ? nameInp.getAttribute('name') : null;
           // Re-derive target field names from the LIVE name field so
           // add/remove/renumber can't leave a stale mapping.
