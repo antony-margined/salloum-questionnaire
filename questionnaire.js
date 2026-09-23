@@ -164,6 +164,11 @@
       if (!par) return;
       if (!isCouplesMode() && 'b' === passportInp.getAttribute('data-testator')) return;
       if (!isVisible(passportInp)) return;
+      // Remove any pre-existing upload field for this exact file name (prevents duplicates after clone/renumber/reuse).
+      $$('.sw-q-upload-field', par).forEach(function (w) {
+        var fi = w.querySelector('input[type="file"]');
+        if (fi && fi.getAttribute('name') === cfg.name) w.remove();
+      });
       if (par.querySelector(':scope > .sw-q-upload-field[data-for="' + cfg.name + '"]')) return;
       const w = document.createElement('div');
       ((w.className = 'sw-q-upload-field'), w.setAttribute('data-for', cfg.name));
@@ -239,7 +244,11 @@
       const ex = par.querySelector('.sw-q-upload-field[data-for="' + fileName + '"]'),
         hasValue = eidInp.value && eidInp.value.trim().length > 0;
       if (hasValue) {
-        if (ex) return;
+        // Remove any pre-existing upload field for this exact file name (prevents duplicates after clone/renumber/reuse).
+        $$('.sw-q-upload-field', par).forEach(function (w) {
+          var fi = w.querySelector('input[type="file"]');
+          if (fi && fi.getAttribute('name') === fileName) w.remove();
+        });
         const w = document.createElement('div');
         ((w.className = 'sw-q-upload-field'), w.setAttribute('data-for', fileName));
         const t = eidInp.getAttribute('data-testator');
