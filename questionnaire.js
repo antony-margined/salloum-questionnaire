@@ -242,7 +242,10 @@
       if (!isCouplesMode() && 'b' === eidInp.getAttribute('data-testator')) return;
       if (!isVisible(eidInp)) return;
       const ex = par.querySelector('.sw-q-upload-field[data-for="' + fileName + '"]'),
-        hasValue = eidInp.value && eidInp.value.trim().length > 0;
+        // Inject when the EID has a value OR a carried doc reference exists
+        // for this file field (a reused person's doc must be able to render
+        // even if the EID text is empty).
+        hasValue = (eidInp.value && eidInp.value.trim().length > 0) || !!swUploadedFiles[fileName];
       if (hasValue) {
         // Remove any pre-existing upload field for this exact file name (prevents duplicates after clone/renumber/reuse).
         $$('.sw-q-upload-field', par).forEach(function (w) {
@@ -1930,6 +1933,31 @@
       // but skip if this slot has no live copies.
       swPropagateFromSource(slot.sourceKey, slot.fieldNames);
     }
+    // Ensure the .sw-q-upload-field + <input type="file"> for a given FILE
+    // field name exists in the DOM, so a carried-doc row can always render
+    // regardless of prior injection timing. Derives the owning text field
+    // and calls the appropriate injector (which are dedup-safe).
+    function swEnsureUploadFieldFor(fileFieldName) {
+      if (!fileFieldName || !/_file$/.test(fileFieldName)) return;
+      // Already present? Nothing to do (injectors also guard, but skip early).
+      if ($('input[type="file"][name="' + fileFieldName + '"]')) return;
+      // Testator passport special cases (UPLOAD_MAP names differ from text).
+      if ('testator_a_passport_file' === fileFieldName) {
+        var pa = $('[name="q5_passport"]');
+        if (pa) injectUploadAfter(pa);
+        return;
+      }
+      if ('testator_b_passport_file' === fileFieldName) {
+        var pb = $('[name="q5_passport_b"]');
+        if (pb) injectUploadAfter(pb);
+        return;
+      }
+      var baseName = fileFieldName.replace(/_file$/, '');
+      var textInp = $('[name="' + baseName + '"]');
+      if (!textInp) return;
+      if (/passport$/.test(baseName)) injectUploadAfter(textInp);
+      else if (/emirates_id$/.test(baseName)) injectEidUploadAfter(textInp);
+    }
     /* ============================================================
        UPLOADED-FILE STATE RENDERING (Spec 3B, additive)
        For every file input whose name is in swUploadedFiles, renders
@@ -1938,6 +1966,12 @@
        stays present so the user can replace the file.
        ============================================================ */
     function swRenderUploadedState() {
+      // First, ensure an upload field exists for every recorded reference so
+      // rendering is independent of prior injection timing (e.g. carried docs
+      // on reused blocks, or after a refresh before injectAllUploads ran).
+      Object.keys(swUploadedFiles).forEach(function (n) {
+        swEnsureUploadFieldFor(n);
+      });
       $$('input[type="file"]').forEach(function (inp) {
         var name = inp.getAttribute('name');
         if (!name) return;
