@@ -971,7 +971,16 @@
       swRebuildReusedBlockState();
       swRenderUploadedState();
     }
+    // While a draft restore is in progress, suppress intermediate saves.
+    // addBlock() calls saveDraft() at its end; during applyDraftData the
+    // block-recreation loop runs BEFORE values + reuse/upload maps are
+    // restored, so an intermediate save would serialize a blank/degraded
+    // form (omitting _reusedBlocks/_uploadedFiles) and clobber the good
+    // draft. The single trailing save in applyDraftData's rAF persists the
+    // fully-restored state.
+    var swRestoring = false;
     function saveDraft() {
+      if (swRestoring) return;
       try {
         const k = getStorageKey();
         if (!k) return;
@@ -1012,6 +1021,9 @@
     }
     function applyDraftData(data) {
       if (!data || 'object' != typeof data) return;
+      // Suppress intermediate saves (e.g. from addBlock) until the whole
+      // restore has completed, then do one clean save at the end.
+      swRestoring = true;
       const blockCounts = {};
       Object.keys(data).forEach((k) => {
         const m = k.match(/^(executor_b|executor|sub_executor|primary_ben|secondary_ben|bequest)_(\d+)_/);
@@ -1068,7 +1080,8 @@
           swReapplyReuseLocks(),
           swRenderUploadedState(),
           requestAnimationFrame(() => {
-            (applyConditionals(), rebuildPersonDropdowns(), injectExcludedJurisdictionPickers(), swReapplyReuseLocks(), swRenderUploadedState(), saveDraft());
+            // Restore fully complete — allow saves again and persist once.
+            (applyConditionals(), rebuildPersonDropdowns(), injectExcludedJurisdictionPickers(), swReapplyReuseLocks(), swRenderUploadedState(), (swRestoring = !1), saveDraft());
           }));
       });
     }
