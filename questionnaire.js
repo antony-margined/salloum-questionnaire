@@ -697,6 +697,20 @@
           if ('yes'   === getRadioValue('q21_directions_pref_b')) swRequireField('q21_directions_details_b');
         }
       }
+      // Step 6 — Specific gifts (bequests): each visible bequest must have a
+      // gift TYPE selected when bequests are enabled.
+      if (6 === currentStep && 'yes' === getRadioValue('q26_has_bequests')) {
+        $$('[data-block="bequest"]', stepEl).forEach((b) => {
+          const idx = b.dataset.blockIndex || '1',
+            name = 'bequest_' + idx + '_type',
+            first = $('input[type="radio"][name="' + name + '"]', b);
+          if (first && isVisible(first) && !$('input[type="radio"][name="' + name + '"]:checked', b)) {
+            const fi = markRadioGroupInvalid(name, stepEl, 'Please choose a gift type');
+            invalidCount++;
+            firstInvalid || (firstInvalid = fi);
+          }
+        });
+      }
       // Step 7 — Guardian sections
       if (7 === currentStep) {
         // For each guardian section: when "yes" is chosen, require the
@@ -1035,14 +1049,14 @@
       swRestoring = true;
       const blockCounts = {};
       Object.keys(data).forEach((k) => {
-        const m = k.match(/^(executor_b|executor|sub_executor|primary_ben|secondary_ben|bequest)_(\d+)_/);
+        const m = k.match(/^(executor_b|executor|sub_executor|primary_ben|secondary_ben|bequest|child)_(\d+)_/);
         if (m) {
           const t = m[1],
             n = parseInt(m[2]);
           blockCounts[t] = Math.max(blockCounts[t] || 1, n);
         }
       });
-      const blockMap = { executor: 'executor', executor_b: 'executor-b', sub_executor: 'sub-executor', primary_ben: 'primary-beneficiary', secondary_ben: 'secondary-beneficiary', bequest: 'bequest' };
+      const blockMap = { executor: 'executor', executor_b: 'executor-b', sub_executor: 'sub-executor', primary_ben: 'primary-beneficiary', secondary_ben: 'secondary-beneficiary', bequest: 'bequest', child: 'child' };
       Object.entries(blockCounts).forEach(([k, n]) => {
         const bt = blockMap[k];
         if (!bt) return;
