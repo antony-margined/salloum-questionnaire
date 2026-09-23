@@ -1824,6 +1824,27 @@
       // (always overwrite so switching A->B fully re-links to B).
       if (container && sourceKey) container.setAttribute('data-reused-from', sourceKey);
       swReusedBlocks[fieldNames.full_name] = { sourceStep: step, sourceScrollName: scrollName, sourceKey: sourceKey, targetFieldNames: fieldNames };
+      // Sync the block's reuse dropdown so it SHOWS the reused person (not the
+      // "— Enter a new person —" placeholder). Without this, after a restore
+      // the select still reads "" so choosing "Enter a new person" fires no
+      // change event and the block stays stuck-locked. Matching the person by
+      // sourceKey makes the placeholder a real change that unlocks/clears.
+      if (container && sourceKey) {
+        var pickerSel = container.querySelector(':scope > .sw-q-person-picker select') || container.querySelector('.sw-q-person-picker select');
+        if (pickerSel) {
+          var registry = buildPersonRegistry();
+          var matchIdx = -1;
+          for (var ri = 0; ri < registry.length; ri++) {
+            var rp = registry[ri];
+            var rpKey = (swSlotFromFieldName(rp._sourceScrollName) || {}).sourceKey;
+            if (rpKey === sourceKey) {
+              matchIdx = ri;
+              break;
+            }
+          }
+          if (matchIdx >= 0 && pickerSel.querySelector('option[value="' + matchIdx + '"]')) pickerSel.value = String(matchIdx);
+        }
+      }
     }
     // Remove the locked state for a reused block.
     function swClearReuseLock(fieldNames) {
