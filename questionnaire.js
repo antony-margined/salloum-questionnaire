@@ -164,12 +164,17 @@
       if (!par) return;
       if (!isCouplesMode() && 'b' === passportInp.getAttribute('data-testator')) return;
       if (!isVisible(passportInp)) return;
-      // Remove any pre-existing upload field for this exact file name (prevents duplicates after clone/renumber/reuse).
-      $$('.sw-q-upload-field', par).forEach(function (w) {
+      // De-dup: if upload field(s) for this exact file name already exist,
+      // KEEP the first and remove only extras, then bail — never destroy the
+      // live input (doing so mid-interaction breaks the file picker).
+      const dupes = $$('.sw-q-upload-field', par).filter(function (w) {
         var fi = w.querySelector('input[type="file"]');
-        if (fi && fi.getAttribute('name') === cfg.name) w.remove();
+        return fi && fi.getAttribute('name') === cfg.name;
       });
-      if (par.querySelector(':scope > .sw-q-upload-field[data-for="' + cfg.name + '"]')) return;
+      if (dupes.length) {
+        for (let di = 1; di < dupes.length; di++) dupes[di].remove();
+        return;
+      }
       const w = document.createElement('div');
       ((w.className = 'sw-q-upload-field'), w.setAttribute('data-for', cfg.name));
       const t = passportInp.getAttribute('data-testator');
@@ -247,11 +252,17 @@
         // even if the EID text is empty).
         hasValue = (eidInp.value && eidInp.value.trim().length > 0) || !!swUploadedFiles[fileName];
       if (hasValue) {
-        // Remove any pre-existing upload field for this exact file name (prevents duplicates after clone/renumber/reuse).
-        $$('.sw-q-upload-field', par).forEach(function (w) {
+        // De-dup: keep the first existing upload field for this file name and
+        // remove only extras, then bail — never destroy the live input
+        // (removing it mid-interaction breaks the file picker / change event).
+        const dupes = $$('.sw-q-upload-field', par).filter(function (w) {
           var fi = w.querySelector('input[type="file"]');
-          if (fi && fi.getAttribute('name') === fileName) w.remove();
+          return fi && fi.getAttribute('name') === fileName;
         });
+        if (dupes.length) {
+          for (let di = 1; di < dupes.length; di++) dupes[di].remove();
+          return;
+        }
         const w = document.createElement('div');
         ((w.className = 'sw-q-upload-field'), w.setAttribute('data-for', fileName));
         const t = eidInp.getAttribute('data-testator');
