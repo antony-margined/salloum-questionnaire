@@ -286,10 +286,31 @@
     function injectAllEidUploads() {
       $$('input[name$="_emirates_id"],input[name$="_emirates_id_b"]').forEach((i) => injectEidUploadAfter(i));
     }
+    // Auto-format an Emirates ID as the user types: 784-XXXX-XXXXXXX-X.
+    // Strips non-digits, caps at 15 digits (784 + 4 + 7 + 1), inserts dashes.
+    function swFormatEid(raw) {
+      var d = (raw || '').replace(/\D/g, '').slice(0, 15);
+      var out = d.slice(0, 3);
+      if (d.length > 3) out += '-' + d.slice(3, 7);
+      if (d.length > 7) out += '-' + d.slice(7, 14);
+      if (d.length > 14) out += '-' + d.slice(14, 15);
+      return out;
+    }
     function wireEidUploadListeners() {
       $$('input[name$="_emirates_id"],input[name$="_emirates_id_b"]').forEach((i) => {
         i.dataset.swEidWired ||
           ((i.dataset.swEidWired = '1'),
+          // Auto-insert dashes so the client never types them. Runs before the
+          // existing upload-injection handler (both fire on 'input').
+          i.addEventListener('input', function () {
+            var formatted = swFormatEid(i.value);
+            if (i.value !== formatted) {
+              i.value = formatted;
+              try {
+                i.setSelectionRange(formatted.length, formatted.length);
+              } catch (e) {}
+            }
+          }),
           i.addEventListener('input', function () {
             injectEidUploadAfter(i);
           }));
