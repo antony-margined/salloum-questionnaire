@@ -1237,7 +1237,11 @@
         if (!submitOk && a < 3) await new Promise((r) => setTimeout(r, 1500 * a));
       }
       if (!submitOk) return (next && ((next.disabled = !1), (next.textContent = 'Submit »')), void showErrorBanner("Couldn't send (" + ((lastErr && lastErr.message) || '?') + '). Ref: ' + cid));
-      (clearDraft(), (window.location.href = '/wills-services/questionnaire-complete?case_id=' + encodeURIComponent(cid)));
+      // Keep the draft after submit so a client can return (same case_id,
+      // within 30 days) to fix a document/answer and re-submit. Make upserts
+      // by case_id, so a re-submission updates the record rather than
+      // duplicating it. (Previously clearDraft() ran here and wiped it.)
+      (window.location.href = '/wills-services/questionnaire-complete?case_id=' + encodeURIComponent(cid));
     }
     /* ============================================================
        PERSON AUTO-POPULATE FEATURE (additive)
