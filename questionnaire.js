@@ -1,6 +1,6 @@
 !(function () {
     'use strict';
-    const SW_VERSION = 'v36',
+    const SW_VERSION = 'v37',
       SW_API = 'https://salloum-submit.salloumlawbusiness.workers.dev';
     const TOTAL_STEPS = 8,
       STEP_NAMES = { 1: 'Part 1 of 8: About You', 2: 'Part 2 of 8: Prior Wills', 3: 'Part 3 of 8: Scope of Estate', 4: 'Part 4 of 8: Executors', 5: 'Part 5 of 8: Funeral Wishes', 6: 'Part 6 of 8: Beneficiaries', 7: 'Part 7 of 8: Guardianship', 8: 'Part 8 of 8: Confirmation' };
@@ -1256,7 +1256,7 @@
       try {
         await submitFormOnce();
       } catch (e) {
-        showErrorBanner("We couldn't send this right now. Your answers and documents are saved. Please press Submit again, or contact saleco@salloum.law quoting " + (swCase.caseId || getCaseId() || '') + '.');
+        showErrorBanner("We could not send this just now. Your answers and documents are saved, so you do not need to start again. Please press Submit again in a few minutes. If it still does not go through, email saleco@salloum.law quoting " + (swCase.caseId || getCaseId() || 'your case ID') + ' and our team will complete it for you.');
         swLog('error', 'submit crashed: ' + ((e && e.message) || e), { stack: e && e.stack });
         var nb = $('[data-q-next]');
         nb && ((nb.disabled = !1), (nb.textContent = 'Submit →'));
@@ -1277,7 +1277,7 @@
       };
       setBtn(!0, 'Checking…');
       if (!swCase.token) await swCaseOpen();
-      if (!swCase.token) return void fail('We could not reach our server. Please check your connection and press Submit again. Your answers are kept on this device.', 'no case token (' + swCase.openError + ')');
+      if (!swCase.token) return void fail('We could not reach our server. Please check your internet connection and press Submit again. Your answers are kept on this device, so you do not need to start again.', 'no case token (' + swCase.openError + ')');
       // Documents: wait for any upload still running, then upload anything chosen but not stored yet.
       setBtn(!0, 'Checking your documents…');
       await swWaitForUploads(90000);
@@ -1305,7 +1305,7 @@
         await swFlushServerSave();
         res = await swApi('/case/submit', { case_id: swCase.caseId, token: swCase.token, step: currentStep, data: collectFormData(), files: files }, { attempts: 5 });
       } catch (e) {
-        return void fail("We couldn't send this right now (" + ((e && e.message) || 'network') + '). Your answers and documents are saved. Please press Submit again, or contact saleco@salloum.law quoting ' + swCase.caseId + '.', e && e.message);
+        return void fail("We could not send this just now. Your answers and documents are saved, so you do not need to start again. Please press Submit again in a few minutes. If it still does not go through, email saleco@salloum.law quoting " + swCase.caseId + ' and our team will complete it for you.', 'submit request failed: ' + ((e && e.message) || 'network'));
       }
       if (res.body && res.body.ok) {
         swCase.submittedAt = Date.now();
@@ -1322,7 +1322,7 @@
         saveDraft();
         return void fail('We could not find some of your documents on our server. Please upload them again (' + (res.body.fields || []).map(labelForField).join(', ') + '), then submit.', 'missing_files ' + (res.body.fields || []).join(','));
       }
-      fail("We couldn't send this right now. Your answers and documents are saved. Please press Submit again, or contact saleco@salloum.law quoting " + swCase.caseId + '.', 'HTTP ' + res.status + ' ' + JSON.stringify(res.body || {}));
+      fail("We could not send this just now. Your answers and documents are saved, so you do not need to start again. Please press Submit again in a few minutes. If it still does not go through, email saleco@salloum.law quoting " + swCase.caseId + ' and our team will complete it for you.', 'HTTP ' + res.status + ' ' + JSON.stringify(res.body || {}));
     }
     function labelForField(f) {
       return String(f || '').replace(/_file$/, '').replace(/_/g, ' ');
@@ -1584,7 +1584,7 @@
           var n = document.createElement('div');
           n.className = 'sw-q-submitted-notice';
           n.setAttribute('style', 'background:#ecfdf3;border:1px solid #12b76a;border-radius:8px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#121f2f;line-height:1.5;font-family:Montserrat,Arial,sans-serif');
-          n.textContent = 'You already submitted this questionnaire on ' + new Date(opened.submittedAt).toLocaleString() + '. If you change anything, press Submit again on the last page and our team will receive the update.';
+          n.textContent = 'We received your questionnaire on ' + new Date(opened.submittedAt).toLocaleString() + '. If you change anything, press Submit again on the last page and our team will receive the update.';
           s1.insertBefore(n, s1.firstChild);
         }
       }
