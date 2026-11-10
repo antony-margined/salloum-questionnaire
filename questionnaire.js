@@ -1,5 +1,7 @@
 !(function () {
     'use strict';
+    const SW_VERSION = 'v35',
+      SW_API = 'https://salloum-submit.salloumlawbusiness.workers.dev';
     const WEBHOOK_URL = 'https://hook.eu2.make.com/awlgw75udlsuft5mf6gpn1f5s1i9tgxb',
       TOTAL_STEPS = 8,
       STEP_NAMES = { 1: 'Part 1 of 8: About You', 2: 'Part 2 of 8: Prior Wills', 3: 'Part 3 of 8: Scope of Estate', 4: 'Part 4 of 8: Executors', 5: 'Part 5 of 8: Funeral Wishes', 6: 'Part 6 of 8: Beneficiaries', 7: 'Part 7 of 8: Guardianship', 8: 'Part 8 of 8: Confirmation' };
@@ -43,8 +45,15 @@
     const $ = (sel, root = document) => root.querySelector(sel),
       $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
     function getCaseId() {
+      if (swCase.caseId) return swCase.caseId;
       const p = new URLSearchParams(window.location.search);
-      return p.get('case_id') || sessionStorage.getItem('sw_case_id') || null;
+      let c = p.get('case_id') || null;
+      if (!c) {
+        try {
+          c = sessionStorage.getItem('sw_case_id');
+        } catch (e) {}
+      }
+      return c || null;
     }
     function getChannel() {
       try {
@@ -414,7 +423,7 @@
       (b && (b.style.visibility = currentStep > 1 ? 'visible' : 'hidden'), n && (n.textContent = currentStep === TOTAL_STEPS ? 'Submit →' : 'Continue →'));
     }
     function nextStep() {
-      if (!validateCurrentStep()) return;
+      if (!validateCurrentStep() || !swCheckStepUploads()) return;
       if (isCouplesMode()) mirrorAtoB();
       if (currentStep === TOTAL_STEPS) return void submitForm();
       let t;
@@ -428,6 +437,7 @@
         7 !== t || shouldShowGuardianship() || (t = 8);
       }
       showStep(t);
+      swScheduleServerSave(!0);
     }
     function prevStep() {
       let t;
@@ -1051,6 +1061,7 @@
         }
         ((d._step = currentStep), (d._savedAt = new Date().toISOString()), localStorage.setItem(k, JSON.stringify(d)));
       } catch (e) {}
+      swScheduleServerSave();
     }
     function hasRealAnswers(d) {
       if (!d || 'object' != typeof d) return !1;
@@ -1145,17 +1156,18 @@
       if (!stepEl) return;
       const banner = document.createElement('div');
       ((banner.className = 'sw-q-resume-banner'),
-        (banner.innerHTML = '<div><strong>Draft found.</strong> Continue or start fresh? Files not saved.</div><div><button type="button" data-resume-yes>Continue</button><button type="button" data-resume-no>Start fresh</button></div>'),
+        (banner.innerHTML = '<div><strong>Saved answers found.</strong> Continue where you left off, or start fresh?</div><div><button type="button" data-resume-yes>Continue</button><button type="button" data-resume-no>Start fresh</button></div>'),
+        (swResumePending = !0),
         stepEl.insertBefore(banner, stepEl.firstChild),
         banner.querySelector('[data-resume-yes]').addEventListener('click', () => {
-          (applyDraftData(data), banner.remove());
+          ((swResumePending = !1), applyDraftData(data), banner.remove());
         }),
         banner.querySelector('[data-resume-no]').addEventListener('click', () => {
           try {
             const k = getStorageKey();
             k && localStorage.removeItem(k);
           } catch (e) {}
-          banner.remove();
+          ((swResumePending = !1), banner.remove(), swScheduleServerSave(!0));
         }));
     }
     function clearDraft() {
@@ -1234,35 +1246,65 @@
     }
     async function submitForm() {
       if (isCouplesMode()) mirrorAtoB();
-      const fd = await buildSubmissionFormData(),
-        cid = caseId || getCaseId() || 'LOCAL-' + Date.now();
-      (fd.append('case_id', cid), fd.append('submitted_at', new Date().toISOString()));
-      const next = $('[data-q-next]');
-      next && ((next.disabled = !0), (next.textContent = 'Submitting…'));
-      const URLS = ['https://salloum-submit.salloumlawbusiness.workers.dev/'];
-      let submitOk = !1,
-        lastErr = null;
-      for (let a = 1; a <= 3 && !submitOk; a++) {
-        for (const u of URLS) {
-          try {
-            const r = await fetch(u, { method: 'POST', body: fd });
-            if (r.ok) {
-              submitOk = !0;
-              break;
-            }
-            lastErr = new Error('HTTP ' + r.status);
-          } catch (e) {
-            lastErr = e;
-          }
-        }
-        if (!submitOk && a < 3) await new Promise((r) => setTimeout(r, 1500 * a));
+      var next = $('[data-q-next]');
+      var setBtn = function (busy, label) {
+        next && ((next.disabled = !!busy), (next.textContent = label));
+      };
+      var fail = function (msg, detail) {
+        setBtn(!1, 'Submit →');
+        showErrorBanner(msg);
+        swLog('error', 'submit failed: ' + (detail || msg));
+      };
+      setBtn(!0, 'Checking…');
+      if (!swCase.token) await swCaseOpen();
+      if (!swCase.token) return void fail('We could not reach our server. Please check your connection and press Submit again. Your answers are kept on this device.', 'no case token (' + swCase.openError + ')');
+      // Documents: wait for any upload still running, then upload anything chosen but not stored yet.
+      setBtn(!0, 'Checking your documents…');
+      await swWaitForUploads(90000);
+      var pending = $$('input[type="file"]').filter(function (i) {
+        var n = i.getAttribute('name');
+        return n && i.files && i.files[0] && !swUploadedFiles[n] && isVisible(i);
+      });
+      for (var i = 0; i < pending.length; i++) {
+        try {
+          await swUploadFile(pending[i]);
+        } catch (e) {}
       }
-      if (!submitOk) return (next && ((next.disabled = !1), (next.textContent = 'Submit »')), void showErrorBanner("Couldn't send (" + ((lastErr && lastErr.message) || '?') + '). Ref: ' + cid));
-      // Keep the draft after submit so a client can return (same case_id,
-      // within 30 days) to fix a document/answer and re-submit. Make upserts
-      // by case_id, so a re-submission updates the record rather than
-      // duplicating it. (Previously clearDraft() ran here and wiped it.)
-      (window.location.href = '/wills-services/questionnaire-complete?case_id=' + encodeURIComponent(cid));
+      var problems = Object.keys(swUploadState).filter(function (n) {
+        var el = $('input[type="file"][name="' + n + '"]');
+        return el && isVisible(el) && ('failed' === swUploadState[n] || 'unreadable' === swUploadState[n]);
+      });
+      if (problems.length) return void fail('Some documents did not upload. Please scroll back, tap Retry or choose those files again, then submit.', 'upload problems: ' + problems.join(','));
+      setBtn(!0, 'Submitting…');
+      var files = Object.keys(swUploadedFiles).map(function (n) {
+        var r = swUploadedFiles[n];
+        return { field: n, key: r.key, filename: r.filename };
+      }).filter(function (f) { return !!f.key; });
+      var res;
+      try {
+        await swFlushServerSave();
+        res = await swApi('/case/submit', { case_id: swCase.caseId, token: swCase.token, step: currentStep, data: collectFormData(), files: files }, { attempts: 5 });
+      } catch (e) {
+        return void fail("We couldn't send this right now (" + ((e && e.message) || 'network') + '). Your answers and documents are saved. Please press Submit again, or contact saleco@salloum.law quoting ' + swCase.caseId + '.', e && e.message);
+      }
+      if (res.body && res.body.ok) {
+        swCase.submittedAt = Date.now();
+        return void (window.location.href = '/wills-services/questionnaire-complete?case_id=' + encodeURIComponent(swCase.caseId));
+      }
+      if (409 === res.status && res.body && 'missing_files' === res.body.error) {
+        (res.body.fields || []).forEach(function (f) {
+          delete swUploadedFiles[f];
+          var el = $('input[type="file"][name="' + f + '"]');
+          el && el.classList.add('sw-q-invalid');
+        });
+        swRenderUploadedState();
+        saveDraft();
+        return void fail('We could not find some of your documents on our server. Please upload them again (' + (res.body.fields || []).map(labelForField).join(', ') + '), then submit.', 'missing_files ' + (res.body.fields || []).join(','));
+      }
+      fail("We couldn't send this right now. Your answers and documents are saved. Please press Submit again, or contact saleco@salloum.law quoting " + swCase.caseId + '.', 'HTTP ' + res.status + ' ' + JSON.stringify(res.body || {}));
+    }
+    function labelForField(f) {
+      return String(f || '').replace(/_file$/, '').replace(/_/g, ' ');
     }
     /* ============================================================
        PERSON AUTO-POPULATE FEATURE (additive)
@@ -1278,29 +1320,361 @@
        swUploadedFiles keyed by field name. Submit still works as
        today; this is read-only from the submission flow's perspective.
        ============================================================ */
-    var swUploadedFiles = {}; // { [fieldName]: { key, filename, url } }
-    var SW_UPLOAD_ENDPOINT = 'https://salloum-submit.salloumlawbusiness.workers.dev/upload';
-    function swUploadFileInBackground(fileInput) {
-      if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
-      var name = fileInput.getAttribute('name');
-      if (!name) return;
-      var file = fileInput.files[0];
-      var cid = caseId || getCaseId() || null;
-      var fd = new FormData();
-      fd.append('file', file, file.name);
-      fd.append('field', name);
-      if (cid) fd.append('case_id', cid);
-      fetch(SW_UPLOAD_ENDPOINT, { method: 'POST', body: fd })
-        .then(function (r) {
-          return r.ok ? r.json() : Promise.reject('HTTP ' + r.status);
-        })
-        .then(function (data) {
-          if (data && data.ok) { swUploadedFiles[name] = { key: data.key, filename: data.filename, url: data.url, viewUrl: data.viewUrl, viewToken: data.viewToken }; swRenderUploadedState(); swPropagateDocFromSourceFile(name); }
-        })
-        .catch(function () {
-          // Silent — submission still sends the raw file as fallback.
-        });
+    var swUploadedFiles = {}; // { [fieldName]: { key, filename, viewUrl, viewToken } }
+
+    /* ============================================================
+       SERVER SYNC (v35)
+       The Worker is the record of the case. Answers are saved to the
+       server on every step and shortly after edits; each document is
+       read into memory and uploaded once, when it is chosen; Submit
+       sends a small JSON request and the Worker assembles the case for
+       Make. localStorage remains a backup for offline moments.
+       ============================================================ */
+    var swCase = { caseId: null, token: null, rev: 0, opened: false, openError: null, submittedAt: null };
+    var swUploadState = {}; // { [fieldName]: 'uploading' | 'failed' | 'unreadable' }
+    var swSaveTimer = null,
+      swSaving = null,
+      swDirty = false,
+      swResumePending = false;
+    function swTokenKey(cid) {
+      return 'sw_tok_' + cid;
     }
+    function swGetStoredToken(cid) {
+      try {
+        return localStorage.getItem(swTokenKey(cid)) || '';
+      } catch (e) {
+        return '';
+      }
+    }
+    function swStoreToken(cid, tok) {
+      try {
+        localStorage.setItem(swTokenKey(cid), tok);
+      } catch (e) {}
+    }
+    function swGetSessionId() {
+      var s = '';
+      try {
+        var p = new URLSearchParams(window.location.search);
+        s = p.get('s') || p.get('session_id') || '';
+        if (!s) s = sessionStorage.getItem('sw_session_id') || '';
+        if (!s && document.referrer) {
+          var r = new URL(document.referrer);
+          if (r.origin === window.location.origin) s = r.searchParams.get('session_id') || '';
+        }
+        if (s) sessionStorage.setItem('sw_session_id', s);
+      } catch (e) {}
+      return /^cs_(live|test)_[A-Za-z0-9]+$/.test(s) ? s : '';
+    }
+    // POST JSON as text/plain (a "simple" request: no CORS preflight to fail).
+    async function swApi(path, payload, opts) {
+      opts = opts || {};
+      var attempts = opts.attempts || 3,
+        lastErr = null;
+      for (var a = 1; a <= attempts; a++) {
+        try {
+          var r = await fetch(SW_API + path, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: JSON.stringify(payload), keepalive: !!opts.keepalive });
+          var body = null;
+          try {
+            body = await r.json();
+          } catch (e) {}
+          if (r.ok || (r.status >= 400 && r.status < 500)) return { status: r.status, body: body || {} };
+          lastErr = new Error('HTTP ' + r.status);
+        } catch (e) {
+          lastErr = e;
+        }
+        if (a < attempts) await new Promise(function (res) { setTimeout(res, 900 * a); });
+      }
+      throw lastErr || new Error('network');
+    }
+    function swLog(level, message, extra) {
+      try {
+        extra = extra || {};
+        var body = JSON.stringify({
+          case_id: swCase.caseId || getCaseId() || '',
+          level: level,
+          message: String(message || '').slice(0, 2000),
+          stack: extra.stack ? String(extra.stack).slice(0, 4000) : '',
+          step: currentStep,
+          url: window.location.href,
+          extra: Object.assign({ v: SW_VERSION, online: navigator.onLine }, extra.data || {}),
+        });
+        if (navigator.sendBeacon && navigator.sendBeacon(SW_API + '/log', new Blob([body], { type: 'text/plain' }))) return;
+        fetch(SW_API + '/log', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: body, keepalive: true }).catch(function () {});
+      } catch (e) {}
+    }
+    function swInjectSaveStatus() {
+      if ($('.sw-q-save-status')) return;
+      var next = $('[data-q-next]');
+      if (!next || !next.parentNode) return;
+      var el = document.createElement('div');
+      el.className = 'sw-q-save-status';
+      el.setAttribute('aria-live', 'polite');
+      el.setAttribute('style', 'width:100%;flex-basis:100%;order:99;font-family:Montserrat,Arial,sans-serif;font-size:12px;line-height:1.4;color:rgba(18,31,47,0.6);margin-top:10px;text-align:right;');
+      next.parentNode.appendChild(el);
+    }
+    function swSetSaveStatus(state) {
+      var el = $('.sw-q-save-status');
+      if (!el) return;
+      var t = { saving: 'Saving…', saved: 'All answers saved', error: 'Not saved yet. Retrying…', offline: 'Connection lost. Your answers are kept on this device and will be saved when you are back online.' }[state] || '';
+      el.textContent = t;
+      el.style.color = 'error' === state || 'offline' === state ? '#b42318' : 'rgba(18,31,47,0.6)';
+    }
+    async function swCaseOpen() {
+      var cid = getCaseId();
+      var s = swGetSessionId();
+      if (!cid && !s) {
+        // Opened without a case reference (e.g. a link shared by the firm).
+        // Give it a manual case ID so the answers are still kept and delivered;
+        // the "MN-" prefix tells the firm to confirm payment.
+        cid = 'MN-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+        try {
+          sessionStorage.setItem('sw_case_id', cid);
+        } catch (e) {}
+      }
+      try {
+        var res = await swApi('/case/open', { case_id: cid || '', s: s, token: cid ? swGetStoredToken(cid) : '', package: getPackage(), channel: getChannel() }, { attempts: 4 });
+        if (200 === res.status && res.body.ok) {
+          swCase.caseId = res.body.case_id;
+          swCase.token = res.body.token;
+          swCase.rev = res.body.rev || 0;
+          swCase.opened = true;
+          swCase.openError = null;
+          swCase.submittedAt = res.body.submittedAt || null;
+          caseId = res.body.case_id;
+          swStoreToken(res.body.case_id, res.body.token);
+          try {
+            sessionStorage.setItem('sw_case_id', res.body.case_id);
+            res.body.package && !getPackage() && sessionStorage.setItem('sw_package', res.body.package);
+            res.body.channel && !getChannel() && sessionStorage.setItem('sw_channel', res.body.channel);
+          } catch (e) {}
+          return res.body;
+        }
+        swCase.openError = (res.body && res.body.error) || 'HTTP ' + res.status;
+        swLog('warn', 'case/open refused: ' + swCase.openError);
+        return null;
+      } catch (e) {
+        swCase.openError = 'network';
+        swLog('error', 'case/open failed: ' + (e && e.message), { stack: e && e.stack });
+        return null;
+      }
+    }
+    function swScheduleServerSave(immediate) {
+      if (!swCase.token || swRestoring || swResumePending) return;
+      swDirty = true;
+      clearTimeout(swSaveTimer);
+      swSaveTimer = setTimeout(swFlushServerSave, immediate ? 0 : 2500);
+    }
+    async function swFlushServerSave() {
+      clearTimeout(swSaveTimer);
+      if (!swCase.token) return false;
+      if (swSaving) {
+        try {
+          await swSaving;
+        } catch (e) {}
+      }
+      if (!swDirty) return true;
+      swDirty = false;
+      swSetSaveStatus('saving');
+      swSaving = swApi('/case/save', { case_id: swCase.caseId, token: swCase.token, step: currentStep, data: collectFormData() }, { attempts: 3 })
+        .then(function (res) {
+          if (200 === res.status && res.body.ok) {
+            swCase.rev = res.body.rev;
+            swSetSaveStatus('saved');
+            return !0;
+          }
+          swDirty = true;
+          swSetSaveStatus('error');
+          swLog('warn', 'case/save refused: ' + ((res.body && res.body.error) || res.status));
+          return !1;
+        })
+        .catch(function (e) {
+          swDirty = true;
+          swSetSaveStatus(navigator.onLine === false ? 'offline' : 'error');
+          clearTimeout(swSaveTimer);
+          swSaveTimer = setTimeout(swFlushServerSave, 15000);
+          return !1;
+        })
+        .finally(function () {
+          swSaving = null;
+        });
+      return swSaving;
+    }
+    function swShowAccessBlock(reason) {
+      swLog('warn', 'questionnaire access blocked: ' + reason);
+      var form = $('form') || document.body;
+      $$('[data-step]').forEach(function (s) {
+        s.style.setProperty('display', 'none', 'important');
+      });
+      $$('[data-q-next],[data-q-back],[data-q-save]').forEach(function (b) {
+        b.style.setProperty('display', 'none', 'important');
+      });
+      var box = document.createElement('div');
+      box.className = 'sw-q-access-block';
+      box.setAttribute('style', 'background:#eff4f8;border:1px solid #1e4381;border-radius:8px;padding:24px;margin:24px 0;font-family:Montserrat,Arial,sans-serif;color:#121f2f;line-height:1.6;font-size:15px;');
+      box.innerHTML =
+        "<strong style='color:#1e4381;display:block;margin-bottom:8px;'>We could not open your questionnaire from this link.</strong>" +
+        "Please use the <strong>Start the questionnaire</strong> button in your payment confirmation email. " +
+        "If you have paid and the link does not work, email <a href='mailto:saleco@salloum.law' style='color:#1e4381;'>saleco@salloum.law</a> or call <a href='tel:+97126450729' style='color:#1e4381;'>+971 2 645 0729</a> and we will help you straight away.";
+      form.insertBefore(box, form.firstChild);
+    }
+    async function swAfterInit(localDraft) {
+      swInjectSaveStatus();
+      var opened = await swCaseOpen();
+      if (!opened) {
+        if (-1 !== ['forbidden', 'not_paid', 'case_mismatch'].indexOf(swCase.openError)) return void swShowAccessBlock(swCase.openError);
+        // Network trouble: carry on locally and keep trying to reach the server.
+        swSetSaveStatus('offline');
+        localDraft && showResumeBanner(localDraft);
+        (function retryOpen() {
+          setTimeout(function () {
+            swCaseOpen().then(function (o) {
+              o ? (swSetSaveStatus('saved'), swScheduleServerSave(!0)) : retryOpen();
+            });
+          }, 20000);
+        })();
+        return;
+      }
+      // Use whichever copy is newer: the server's or this device's.
+      var server = opened.answers && hasRealAnswers(opened.answers) ? opened.answers : null,
+        serverAt = opened.savedAt || 0,
+        localAt = localDraft && localDraft._savedAt ? Date.parse(localDraft._savedAt) || 0 : 0,
+        pick = null;
+      if (server && (!localDraft || serverAt >= localAt)) pick = Object.assign({}, server, { _step: opened.step || server._step || 1 });
+      else if (localDraft) pick = localDraft;
+      if (pick) showResumeBanner(pick);
+      if (opened.submittedAt) {
+        var s1 = $('[data-step="1"]');
+        if (s1 && !$('.sw-q-submitted-notice')) {
+          var n = document.createElement('div');
+          n.className = 'sw-q-submitted-notice';
+          n.setAttribute('style', 'background:#ecfdf3;border:1px solid #12b76a;border-radius:8px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#121f2f;line-height:1.5;font-family:Montserrat,Arial,sans-serif');
+          n.textContent = 'You already submitted this questionnaire on ' + new Date(opened.submittedAt).toLocaleString() + '. If you change anything, press Submit again on the last page and our team will receive the update.';
+          s1.insertBefore(n, s1.firstChild);
+        }
+      }
+      if (!pick) swSetSaveStatus('saved');
+    }
+    function swRenderUploadStatus(inp, state, detail) {
+      if (!inp) return;
+      var wrap = inp.closest('.sw-q-upload-field') || inp.parentNode;
+      if (!wrap) return;
+      var row = wrap.querySelector('.sw-q-upload-status');
+      if (!state) {
+        row && row.remove();
+        return;
+      }
+      if (!row) {
+        row = document.createElement('div');
+        row.className = 'sw-q-upload-status';
+        row.setAttribute('style', 'font-family:Montserrat,Arial,sans-serif;font-size:12px;margin-top:6px;line-height:1.4;');
+        inp.parentNode.insertBefore(row, inp.nextSibling);
+      }
+      row.innerHTML = '';
+      if ('uploading' === state) {
+        row.style.color = 'rgba(18,31,47,0.7)';
+        row.textContent = 'Uploading…';
+        return;
+      }
+      row.style.color = '#b42318';
+      if ('unreadable' === state) {
+        row.textContent = 'We could not read this file. Please choose it again.';
+        return;
+      }
+      row.appendChild(document.createTextNode('This document did not upload' + (detail ? ' (' + detail + ')' : '') + '. '));
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = 'Retry';
+      b.setAttribute('style', 'background:none;border:none;padding:0;color:#1e4381;font-weight:700;text-decoration:underline;cursor:pointer;font-size:12px;');
+      b.addEventListener('click', function () {
+        swUploadFile(inp).catch(function () {});
+      });
+      row.appendChild(b);
+    }
+    // Reads the file into memory immediately (while the browser still has
+    // access to it), then uploads with retries. Nothing re-reads the file later.
+    async function swUploadFile(fileInput) {
+      if (!fileInput || !fileInput.files || !fileInput.files[0]) return null;
+      var name = fileInput.getAttribute('name');
+      if (!name) return null;
+      var file = fileInput.files[0];
+      swUploadState[name] = 'uploading';
+      swRenderUploadStatus(fileInput, 'uploading');
+      var blob;
+      try {
+        blob = new Blob([await file.arrayBuffer()], { type: file.type || 'application/octet-stream' });
+      } catch (e) {
+        swUploadState[name] = 'unreadable';
+        swRenderUploadStatus(fileInput, 'unreadable');
+        swLog('error', 'file unreadable at selection: ' + (e && e.message), { data: { field: name, size: file.size, type: file.type } });
+        throw e;
+      }
+      if (!swCase.token && !swCase.opened) await swCaseOpen();
+      var cid = swCase.caseId || caseId || getCaseId() || '',
+        lastErr = null;
+      for (var a = 1; a <= 4; a++) {
+        try {
+          var fd = new FormData();
+          fd.append('file', blob, file.name);
+          fd.append('field', name);
+          cid && fd.append('case_id', cid);
+          swCase.token && fd.append('token', swCase.token);
+          var r = await fetch(SW_UPLOAD_ENDPOINT, { method: 'POST', body: fd });
+          var data = null;
+          try {
+            data = await r.json();
+          } catch (e) {}
+          if (r.ok && data && data.ok) {
+            swUploadedFiles[name] = { key: data.key, filename: data.filename, viewUrl: data.viewUrl, viewToken: data.viewToken };
+            delete swUploadState[name];
+            swRenderUploadStatus(fileInput, null);
+            swRenderUploadedState();
+            swPropagateDocFromSourceFile(name);
+            saveDraft();
+            swScheduleServerSave(!0);
+            return data;
+          }
+          lastErr = new Error((data && data.error) || 'HTTP ' + r.status);
+          if (r.status >= 400 && r.status < 500) break;
+        } catch (e) {
+          lastErr = e;
+        }
+        await new Promise(function (res) { setTimeout(res, 1200 * a); });
+      }
+      swUploadState[name] = 'failed';
+      swRenderUploadStatus(fileInput, 'failed', lastErr && /^(File|HTTP 4)/.test(lastErr.message) ? lastErr.message : '');
+      swLog('error', 'upload failed: ' + (lastErr && lastErr.message), { data: { field: name, size: file.size, type: file.type } });
+      throw lastErr || new Error('upload failed');
+    }
+    function swUploadFileInBackground(fileInput) {
+      swUploadFile(fileInput).catch(function () {});
+    }
+    // Blocks Continue while a document in this step is uploading or failed.
+    function swCheckStepUploads() {
+      var stepEl = $('[data-step="' + currentStep + '"]');
+      if (!stepEl) return !0;
+      var waiting = !1,
+        failed = !1;
+      $$('input[type="file"]', stepEl).forEach(function (inp) {
+        if (!isVisible(inp)) return;
+        var st = swUploadState[inp.getAttribute('name')];
+        'uploading' === st ? (waiting = !0) : ('failed' === st || 'unreadable' === st) && ((failed = !0), inp.classList.add('sw-q-invalid'));
+      });
+      waiting ? showErrorBanner('Please wait a moment. A document is still uploading.') : failed && showErrorBanner('One or more documents did not upload. Please tap Retry or choose the file again before continuing.');
+      return !waiting && !failed;
+    }
+    async function swWaitForUploads(ms) {
+      var until = Date.now() + ms;
+      while (Date.now() < until && Object.keys(swUploadState).some(function (k) { return 'uploading' === swUploadState[k]; })) await new Promise(function (res) { setTimeout(res, 500); });
+    }
+    window.addEventListener('error', function (e) {
+      if (e && e.filename && -1 === e.filename.indexOf('salloum-questionnaire')) return;
+      swLog('error', 'window.error: ' + (e && e.message), { stack: e && e.error && e.error.stack, data: { line: e && e.lineno } });
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      var r = e && e.reason;
+      swLog('error', 'unhandledrejection: ' + ((r && r.message) || String(r)), { stack: r && r.stack });
+    });
+    var SW_UPLOAD_ENDPOINT = 'https://salloum-submit.salloumlawbusiness.workers.dev/upload';
     // Canonical identity attribute order (source of truth for copy).
     var SW_PERSON_ATTRS = ['full_name', 'relationship', 'nationality', 'dob', 'pob', 'passport', 'emirates_id'];
     // Read a single field value by name (trimmed). Uses existing $ helper.
@@ -2205,8 +2579,11 @@
         inp.parentNode.insertBefore(row, inp.nextSibling);
       });
     }
-    function saveAndExit() {
-      (clearTimeout(window._sw_save_t), saveDraft(), alert('Progress saved. You can return within 30 days. Your answers and uploaded documents are kept until then.'), (window.location.href = '/wills-services'));
+    async function saveAndExit() {
+      (clearTimeout(window._sw_save_t), saveDraft(), (swDirty = !0));
+      var ok = await swFlushServerSave();
+      alert(ok ? 'Progress saved. You can return within 30 days using the link in your payment email, on this or any other device. Your answers and uploaded documents are kept until then.' : 'Your answers are saved on this device, but we could not reach our server just now. Please return on this same device and browser, or try Save again when you are back online.');
+      window.location.href = '/wills-services';
     }
     function init() {
       if ('silver' === getPackage()) {
@@ -2339,7 +2716,7 @@
       const draft = checkForDraft();
       (showStep(1),
         requestAnimationFrame(() => {
-          (applyConditionals(), updateRadioStates(), injectAllUploads(), injectAllEidUploads(), wireEidUploadListeners(), injectExcludedJurisdictionPickers(), isCouplesMode() && mirrorAtoB(), swExclRebuildAll(), draft && showResumeBanner(draft), (window._sw_init_done = !0));
+          (applyConditionals(), updateRadioStates(), injectAllUploads(), injectAllEidUploads(), wireEidUploadListeners(), injectExcludedJurisdictionPickers(), isCouplesMode() && mirrorAtoB(), swExclRebuildAll(), swAfterInit(draft), (window._sw_init_done = !0));
         }));
     }
     'loading' === document.readyState ? document.addEventListener('DOMContentLoaded', init) : init();
