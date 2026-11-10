@@ -1,6 +1,6 @@
 !(function () {
     'use strict';
-    const SW_VERSION = 'v37',
+    const SW_VERSION = 'v38',
       SW_API = 'https://salloum-submit.salloumlawbusiness.workers.dev';
     const TOTAL_STEPS = 8,
       STEP_NAMES = { 1: 'Part 1 of 8: About You', 2: 'Part 2 of 8: Prior Wills', 3: 'Part 3 of 8: Scope of Estate', 4: 'Part 4 of 8: Executors', 5: 'Part 5 of 8: Funeral Wishes', 6: 'Part 6 of 8: Beneficiaries', 7: 'Part 7 of 8: Guardianship', 8: 'Part 8 of 8: Confirmation' };
@@ -614,6 +614,34 @@
           er && (markFieldError(f, er), invalidCount++, firstInvalid || (firstInvalid = f));
         }));
       const personBlocks = $$('[data-block="executor"],[data-block="executor-b"],[data-block="substitute_executor"],[data-block="primary_beneficiary"],[data-block="secondary_beneficiary"],[data-block="guardian"],[data-block="sub_guardian"],[data-block="interim_guardian"],[data-block="sub_interim_guardian"]', stepEl);
+      // Same person (name and passport) named as both the main appointee and
+      // their substitute: a contradiction the firm cannot draft from.
+      function swPersonKeyOf(nameEl, passEl) {
+        const n = ((nameEl && nameEl.value) || '').trim().toLowerCase();
+        if (!n) return null;
+        return n + '|' + ((passEl && passEl.value) || '').trim().toUpperCase();
+      }
+      function swSameAsMain(mainSel, subSel, msg) {
+        const keys = {};
+        $$(mainSel, stepEl).filter((b) => isVisible(b)).forEach((b) => {
+          const k = swPersonKeyOf($('input[name$="_full_name"]', b), $('input[name$="_passport"]:not([type="file"])', b));
+          k && (keys[k] = !0);
+        });
+        $$(subSel, stepEl).filter((b) => isVisible(b)).forEach((b) => {
+          const nEl = $('input[name$="_full_name"]', b);
+          const k = swPersonKeyOf(nEl, $('input[name$="_passport"]:not([type="file"])', b));
+          k && keys[k] && (markFieldError(nEl, msg), invalidCount++, firstInvalid || (firstInvalid = nEl));
+        });
+      }
+      function swSameAsMainFixed(main, sub, msg) {
+        const sN = $('[name="' + sub + '_full_name"]', stepEl);
+        if (!sN || !isVisible(sN)) return;
+        const mN = $('[name="' + main + '_full_name"]', stepEl);
+        if (!mN || !isVisible(mN)) return;
+        const a = swPersonKeyOf(mN, $('[name="' + main + '_passport"]', stepEl)),
+          b = swPersonKeyOf(sN, $('[name="' + sub + '_passport"]', stepEl));
+        a && b && a === b && (markFieldError(sN, msg), invalidCount++, firstInvalid || (firstInvalid = sN));
+      }
       function findDuplicates(sel, label) {
         const blocks = $$(sel, stepEl),
           seen = {};
@@ -643,7 +671,9 @@
             (markFieldError(t, 'This ' + role + '’s ' + m.field + ' matches Testator ' + m.t.toUpperCase() + '.'), invalidCount++, firstInvalid || (firstInvalid = t));
           }
         }),
-        4 === currentStep && (findDuplicates('[data-block="executor"]', 'executor'), findDuplicates('[data-block="executor-b"]', 'Testator B executor'), findDuplicates('[data-block="sub-executor"]', 'substitute executor')),
+        4 === currentStep && (findDuplicates('[data-block="executor"]', 'executor'), findDuplicates('[data-block="executor-b"]', 'Testator B executor'), findDuplicates('[data-block="sub-executor"]', 'substitute executor'), swSameAsMain('[data-block="executor"]', '[data-block="sub-executor"]', 'This person is already named as an executor. A substitute executor must be someone else.')),
+        6 === currentStep && swSameAsMain('[data-block="primary-beneficiary"]', '[data-block="secondary-beneficiary"]', 'This person is already a beneficiary. A secondary beneficiary must be someone else.'),
+        7 === currentStep && (swSameAsMainFixed('perm_guardian', 'sub_perm', 'This person is already the permanent guardian. The substitute must be someone else.'), swSameAsMainFixed('interim', 'sub_interim', 'This person is already the interim guardian. The substitute must be someone else.')),
         6 === currentStep && (findDuplicates('[data-block="primary-beneficiary"]', 'beneficiary'), findDuplicates('[data-block="secondary-beneficiary"]', 'secondary beneficiary')),
         6 === currentStep)
       ) {
@@ -1715,17 +1745,34 @@
     var SW_PERSON_ATTRS = ['full_name', 'relationship', 'nationality', 'dob', 'pob', 'passport', 'emirates_id'];
     // Read a single field value by name (trimmed). Uses existing $ helper.
     function swFieldVal(name) {
-      var el = $('[name="' + name + '"]');
+      var el = swLastByName(name);
       return el && 'file' !== el.type ? (el.value || '').trim() : '';
+    }
+    // In couples mode the spouse fields exist twice: a hidden copy in Part 1
+    // and the visible one on the Spouse Details step, which comes later in the
+    // page. The later element is the one the client types into.
+    function swLastByName(name) {
+      var els = $$('[name="' + name + '"]');
+      return els.length ? els[els.length - 1] : null;
     }
     // Build one canonical person object from a set of field names.
     // fieldNames maps attr -> field name (or null when the role lacks it).
     function swReadPerson(fieldNames, source) {
-      var p = { source: source };
+      var p = { source: source, _has: {} };
       SW_PERSON_ATTRS.forEach(function (a) {
         p[a] = fieldNames[a] ? swFieldVal(fieldNames[a]) : '';
+        p._has[a] = !!fieldNames[a];
       });
       return p;
+    }
+    // Identity details to lock on a reused copy: only those the source person
+    // has. A child or a testator has no "relationship" (and a child no place
+    // of birth), so the client must still be able to fill those in the new role.
+    function swLockAttrsFor(person) {
+      if (!person || !person._has) return null;
+      return SW_LOCK_ATTRS.filter(function (a) {
+        return person._has[a];
+      });
     }
     // Dedup key: full_name (lower/trim) + '|' + passport (upper/trim).
     function swPersonKey(p) {
@@ -1865,6 +1912,13 @@
       if (!fieldNames) return;
       SW_PERSON_ATTRS.forEach(function (a) {
         if (!fieldNames[a]) return; // target lacks this field
+        if (person && person._has && !person._has[a]) {
+          // The source has no such detail: clear any earlier value only if it
+          // was locked from a previous person, otherwise keep what was typed.
+          var el = $('[name="' + fieldNames[a] + '"]');
+          if (el && el.classList.contains('sw-q-locked')) swSetField(fieldNames[a], '');
+          return;
+        }
         swSetField(fieldNames[a], person ? person[a] || '' : '');
       });
     }
@@ -2221,10 +2275,16 @@
       }
     }
     // Lock all whitelisted identity fields of a target (from resolved names).
-    function swLockIdentityFields(fieldNames, lock) {
+    function swLockIdentityFields(fieldNames, lock, attrs) {
       if (!fieldNames) return;
       SW_LOCK_ATTRS.forEach(function (a) {
         if (!fieldNames[a]) return; // target lacks this identity field
+        if (lock && attrs && -1 === attrs.indexOf(a)) {
+          // Not part of the source person: keep it editable.
+          var free = $('[name="' + fieldNames[a] + '"]');
+          free && 'file' !== free.type && swUnlockFieldEl(free);
+          return;
+        }
         var el = $('[name="' + fieldNames[a] + '"]');
         if (!el || 'file' === el.type) return;
         lock ? swLockFieldEl(el) : swUnlockFieldEl(el);
@@ -2271,7 +2331,9 @@
     // Apply the full locked+notice+doc-lock state for a reused block.
     function swApplyReuseLock(fieldNames, person) {
       if (!fieldNames || !fieldNames.full_name) return;
-      swLockIdentityFields(fieldNames, true);
+      var prior = swReusedBlocks[fieldNames.full_name];
+      var lockAttrs = person ? swLockAttrsFor(person) : (prior && prior.lockAttrs) || null;
+      swLockIdentityFields(fieldNames, true, lockAttrs);
       // Lock carried document fields (no Remove / no replace).
       var passportFile = fieldNames.passport ? fieldNames.passport + '_file' : null;
       var eidFile = fieldNames.emirates_id ? fieldNames.emirates_id + '_file' : null;
@@ -2292,7 +2354,7 @@
       // Tag the target block so propagation can find it by source slot
       // (always overwrite so switching A->B fully re-links to B).
       if (container && sourceKey) container.setAttribute('data-reused-from', sourceKey);
-      swReusedBlocks[fieldNames.full_name] = { sourceStep: step, sourceScrollName: scrollName, sourceKey: sourceKey, targetFieldNames: fieldNames };
+      swReusedBlocks[fieldNames.full_name] = { sourceStep: step, sourceScrollName: scrollName, sourceKey: sourceKey, targetFieldNames: fieldNames, lockAttrs: lockAttrs };
       // Sync the block's reuse dropdown so it SHOWS the reused person (not the
       // "— Enter a new person —" placeholder). Without this, after a restore
       // the select still reads "" so choosing "Enter a new person" fires no
@@ -2413,7 +2475,7 @@
       if (!sourceFieldNames || !targetFieldNames) return;
       SW_LOCK_ATTRS.forEach(function (a) {
         if (!sourceFieldNames[a] || !targetFieldNames[a]) return;
-        var src = $('[name="' + sourceFieldNames[a] + '"]');
+        var src = swLastByName(sourceFieldNames[a]);
         if (!src || 'file' === src.type) return;
         swSetLockedValue(targetFieldNames[a], src.value);
       });
