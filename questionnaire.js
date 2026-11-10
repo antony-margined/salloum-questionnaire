@@ -1,9 +1,8 @@
 !(function () {
     'use strict';
-    const SW_VERSION = 'v35',
+    const SW_VERSION = 'v36',
       SW_API = 'https://salloum-submit.salloumlawbusiness.workers.dev';
-    const WEBHOOK_URL = 'https://hook.eu2.make.com/awlgw75udlsuft5mf6gpn1f5s1i9tgxb',
-      TOTAL_STEPS = 8,
+    const TOTAL_STEPS = 8,
       STEP_NAMES = { 1: 'Part 1 of 8: About You', 2: 'Part 2 of 8: Prior Wills', 3: 'Part 3 of 8: Scope of Estate', 4: 'Part 4 of 8: Executors', 5: 'Part 5 of 8: Funeral Wishes', 6: 'Part 6 of 8: Beneficiaries', 7: 'Part 7 of 8: Guardianship', 8: 'Part 8 of 8: Confirmation' };
     function getStorageKey() {
       const cid = getCaseId();
@@ -20,21 +19,21 @@
       MIN_EXECUTOR_AGE = 18,
       MIN_GUARDIAN_AGE = 18,
       MAX_BLOCKS = {},
-      MAX_FILE_MB = 10,
-      FILE_TYPES = 'application/pdf,image/jpeg,image/jpg,image/png,image/webp,image/heic',
+      MAX_FILE_MB = 20,
+      FILE_TYPES = 'application/pdf,image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif',
       UPLOAD_MAP = [
-        [/^q5_passport$/, 'testator_a_passport_file', 'Upload passport (PDF/image, max 10MB)'],
-        [/^q5_passport_b$/, 'testator_b_passport_file', 'Upload passport (max 10MB)'],
-        [/^executor_(\d+)_passport$/, 'executor_$1_passport_file', 'Upload executor passport (PDF/image, max 10MB)'],
-        [/^executor_b_(\d+)_passport$/, 'executor_b_$1_passport_file', 'Upload executor passport (max 10MB)'],
-        [/^sub_executor_(\d+)_passport$/, 'sub_executor_$1_passport_file', 'Upload substitute executor passport (max 10MB)'],
-        [/^perm_guardian_passport$/, 'perm_guardian_passport_file', 'Upload guardian passport (max 10MB)'],
-        [/^sub_perm_passport$/, 'sub_perm_passport_file', 'Upload substitute guardian passport (PDF/image, max 10MB)'],
-        [/^interim_passport$/, 'interim_passport_file', 'Upload interim guardian passport (max 10MB)'],
-        [/^sub_interim_passport$/, 'sub_interim_passport_file', 'Upload substitute interim guardian passport (PDF/image, max 10MB)'],
-        [/^primary_ben_(\d+)_passport$/, 'primary_ben_$1_passport_file', 'Upload beneficiary passport (max 10MB)'],
-        [/^secondary_ben_(\d+)_passport$/, 'secondary_ben_$1_passport_file', 'Upload beneficiary passport (max 10MB)'],
-        [/^child_(\d+)_passport$/, 'child_$1_passport_file', 'Upload child passport (PDF/image, max 10MB)'],
+        [/^q5_passport$/, 'testator_a_passport_file', 'Upload passport (PDF/image, max 20MB)'],
+        [/^q5_passport_b$/, 'testator_b_passport_file', 'Upload passport (max 20MB)'],
+        [/^executor_(\d+)_passport$/, 'executor_$1_passport_file', 'Upload executor passport (PDF/image, max 20MB)'],
+        [/^executor_b_(\d+)_passport$/, 'executor_b_$1_passport_file', 'Upload executor passport (max 20MB)'],
+        [/^sub_executor_(\d+)_passport$/, 'sub_executor_$1_passport_file', 'Upload substitute executor passport (max 20MB)'],
+        [/^perm_guardian_passport$/, 'perm_guardian_passport_file', 'Upload guardian passport (max 20MB)'],
+        [/^sub_perm_passport$/, 'sub_perm_passport_file', 'Upload substitute guardian passport (PDF/image, max 20MB)'],
+        [/^interim_passport$/, 'interim_passport_file', 'Upload interim guardian passport (max 20MB)'],
+        [/^sub_interim_passport$/, 'sub_interim_passport_file', 'Upload substitute interim guardian passport (PDF/image, max 20MB)'],
+        [/^primary_ben_(\d+)_passport$/, 'primary_ben_$1_passport_file', 'Upload beneficiary passport (max 20MB)'],
+        [/^secondary_ben_(\d+)_passport$/, 'secondary_ben_$1_passport_file', 'Upload beneficiary passport (max 20MB)'],
+        [/^child_(\d+)_passport$/, 'child_$1_passport_file', 'Upload child passport (PDF/image, max 20MB)'],
       ],
       COUNTRIES = ['Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan', 'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei', 'Bulgaria', 'Burkina Faso', 'Burundi', 'Cambodia', 'Cameroon', 'Canada', 'Cape Verde', 'Central African Republic', 'Chad', 'Chile', 'China', 'Colombia', 'Comoros', 'Congo', 'Costa Rica', 'Croatia', 'Cuba', 'Cyprus', 'Czech Republic', 'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 'Ecuador', 'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji', 'Finland', 'France', 'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea', 'Guinea-Bissau', 'Guyana', 'Haiti', 'Honduras', 'Hungary', 'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Israel', 'Italy', 'Ivory Coast', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kiribati', 'Kosovo', 'Kuwait', 'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg', 'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius', 'Mexico', 'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nauru', 'Nepal', 'Netherlands', 'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'North Korea', 'North Macedonia', 'Norway', 'Oman', 'Pakistan', 'Palau', 'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saint Kitts and Nevis', 'Saint Lucia', 'Samoa', 'San Marino', 'Saudi Arabia', 'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore', 'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia', 'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname', 'Sweden', 'Switzerland', 'Syria', 'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Timor-Leste', 'Togo', 'Tonga', 'Trinidad and Tobago', 'Tunisia', 'Turkey', 'Turkmenistan', 'Tuvalu', 'Uganda', 'Ukraine', 'United Arab Emirates', 'United Kingdom', 'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'],
       OPTIONAL_FIELDS = new Set([]),
@@ -158,11 +157,14 @@
     }
     function validateFile(inp) {
       const w = inp.closest('.sw-q-upload-field') || inp.closest('.sw-q-field');
+      // Each file input has two change handlers. After a file is rejected the
+      // input is emptied, so the second call sees no file: keep the message.
+      if (!inp.files || !inp.files.length) return !0;
       if (w) {
         const e = w.querySelector('.sw-q-field-error');
         e && e.remove();
       }
-      if ((inp.classList.remove('sw-q-invalid'), !inp.files || !inp.files.length)) return !0;
+      inp.classList.remove('sw-q-invalid');
       const f = inp.files[0];
       return f.size > 1048576 * MAX_FILE_MB ? (inp.classList.add('sw-q-invalid'), addErrorToWrap(w, 'File too large. Max ' + MAX_FILE_MB + 'MB.'), (inp.value = ''), !1) : -1 !== FILE_TYPES.indexOf(f.type) || (inp.classList.add('sw-q-invalid'), addErrorToWrap(w, 'Only PDF or image (JPG/PNG/WebP/HEIC) allowed.'), (inp.value = ''), !1);
     }
@@ -227,7 +229,7 @@
             const w = document.createElement('div');
             ((w.className = 'sw-q-upload-field'), w.setAttribute('data-for', 'bequest_' + idx + '_file'));
             const l = document.createElement('div');
-            ((l.className = 'sw-q-label'), (l.textContent = 'Upload supporting document (PDF/image, max 10MB)'));
+            ((l.className = 'sw-q-label'), (l.textContent = 'Upload supporting document (PDF/image, max 20MB)'));
             const f = document.createElement('input');
             ((f.type = 'file'),
               (f.name = 'bequest_' + idx + '_file'),
@@ -244,7 +246,7 @@
         }));
     }
     function getEidUploadLabel(eidName) {
-      const sfx = ' Emirates ID (PDF/image, max 10MB)';
+      const sfx = ' Emirates ID (PDF/image, max 20MB)';
       return 'Upload' + (eidName.includes('executor') ? ' executor' : eidName.startsWith('perm_guardian') || eidName.startsWith('sub_perm') ? ' guardian' : eidName.startsWith('interim') || eidName.startsWith('sub_interim') ? ' interim guardian' : eidName.includes('primary_ben') || eidName.includes('secondary_ben') ? ' beneficiary' : eidName.includes('child') ? ' child' : '') + sfx;
     }
     function injectEidUploadAfter(eidInp) {
@@ -1244,7 +1246,25 @@
       if (persistedRefs.length) fd.append('persisted_files', JSON.stringify(persistedRefs));
       return fd;
     }
+    var swSubmitting = !1,
+      swLeaving = !1;
+    // The Submit control is a link, so "disabled" does not stop repeat
+    // clicks. Only one submission runs at a time.
     async function submitForm() {
+      if (swSubmitting) return;
+      swSubmitting = !0;
+      try {
+        await submitFormOnce();
+      } catch (e) {
+        showErrorBanner("We couldn't send this right now. Your answers and documents are saved. Please press Submit again, or contact saleco@salloum.law quoting " + (swCase.caseId || getCaseId() || '') + '.');
+        swLog('error', 'submit crashed: ' + ((e && e.message) || e), { stack: e && e.stack });
+        var nb = $('[data-q-next]');
+        nb && ((nb.disabled = !1), (nb.textContent = 'Submit →'));
+      } finally {
+        swLeaving || (swSubmitting = !1);
+      }
+    }
+    async function submitFormOnce() {
       if (isCouplesMode()) mirrorAtoB();
       var next = $('[data-q-next]');
       var setBtn = function (busy, label) {
@@ -1289,6 +1309,7 @@
       }
       if (res.body && res.body.ok) {
         swCase.submittedAt = Date.now();
+        swLeaving = !0;
         return void (window.location.href = '/wills-services/questionnaire-complete?case_id=' + encodeURIComponent(swCase.caseId));
       }
       if (409 === res.status && res.body && 'missing_files' === res.body.error) {
@@ -1402,22 +1423,36 @@
         fetch(SW_API + '/log', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: body, keepalive: true }).catch(function () {});
       } catch (e) {}
     }
+    // Save status sits just above the footer bar, aligned with the Continue
+    // button. It is kept out of the button row so the bar keeps its design.
     function swInjectSaveStatus() {
       if ($('.sw-q-save-status')) return;
       var next = $('[data-q-next]');
       if (!next || !next.parentNode) return;
+      var row = next.parentNode;
+      if ('static' === getComputedStyle(row).position) row.style.position = 'relative';
       var el = document.createElement('div');
       el.className = 'sw-q-save-status';
       el.setAttribute('aria-live', 'polite');
-      el.setAttribute('style', 'width:100%;flex-basis:100%;order:99;font-family:Montserrat,Arial,sans-serif;font-size:12px;line-height:1.4;color:rgba(18,31,47,0.6);margin-top:10px;text-align:right;');
-      next.parentNode.appendChild(el);
+      el.setAttribute(
+        'style',
+        'position:absolute;right:0;bottom:calc(100% + 24px);max-width:min(420px,calc(100vw - 32px));box-sizing:border-box;padding:5px 12px;border-radius:999px;background:#ffffff;border:1px solid #e3e9f0;box-shadow:0 2px 8px rgba(18,31,47,0.08);font-family:Montserrat,Arial,sans-serif;font-size:11px;line-height:1.4;color:rgba(18,31,47,0.7);text-align:left;pointer-events:none;opacity:0;transition:opacity .3s ease;z-index:2;'
+      );
+      row.appendChild(el);
     }
+    var swStatusTimer = null;
     function swSetSaveStatus(state) {
       var el = $('.sw-q-save-status');
       if (!el) return;
       var t = { saving: 'Saving…', saved: 'All answers saved', error: 'Not saved yet. Retrying…', offline: 'Connection lost. Your answers are kept on this device and will be saved when you are back online.' }[state] || '';
+      var problem = 'error' === state || 'offline' === state;
       el.textContent = t;
-      el.style.color = 'error' === state || 'offline' === state ? '#b42318' : 'rgba(18,31,47,0.6)';
+      el.style.color = problem ? '#b42318' : 'rgba(18,31,47,0.7)';
+      el.style.borderColor = problem ? '#f4c7c3' : '#e3e9f0';
+      clearTimeout(swStatusTimer);
+      el.style.opacity = t ? '1' : '0';
+      // "Saved" fades after a moment; problems stay visible until resolved.
+      if ('saved' === state) swStatusTimer = setTimeout(function () { el.style.opacity = '0'; }, 2500);
     }
     async function swCaseOpen() {
       var cid = getCaseId();
@@ -1543,7 +1578,8 @@
       else if (localDraft) pick = localDraft;
       if (pick) showResumeBanner(pick);
       if (opened.submittedAt) {
-        var s1 = $('[data-step="1"]');
+        // Shown above whichever part the client lands on.
+        var s1 = $('form') || $('[data-step="1"]');
         if (s1 && !$('.sw-q-submitted-notice')) {
           var n = document.createElement('div');
           n.className = 'sw-q-submitted-notice';
