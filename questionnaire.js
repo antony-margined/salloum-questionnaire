@@ -1,6 +1,6 @@
 !(function () {
     'use strict';
-    const SW_VERSION = 'v39',
+    const SW_VERSION = 'v40',
       SW_API = 'https://salloum-submit.salloumlawbusiness.workers.dev';
     const TOTAL_STEPS = 8,
       STEP_NAMES = { 1: 'Part 1 of 8: About You', 2: 'Part 2 of 8: Prior Wills', 3: 'Part 3 of 8: Scope of Estate', 4: 'Part 4 of 8: Executors', 5: 'Part 5 of 8: Funeral Wishes', 6: 'Part 6 of 8: Beneficiaries', 7: 'Part 7 of 8: Guardianship', 8: 'Part 8 of 8: Confirmation' };
@@ -1752,9 +1752,18 @@
     // and the visible one on the Spouse Details step, which comes later in the
     // page. The later element is the one the client types into.
     function swLastByName(name) {
+      if (swNameIndex) return swNameIndex.get(name) || null;
       var els = $$('[name="' + name + '"]');
       return els.length ? els[els.length - 1] : null;
     }
+    // v40: reading the people list used to search the whole page once per
+    // detail, per person, per "Reuse a person" list, on every change. With
+    // many people (5 or more per role) that froze the page for seconds. A
+    // registry build now indexes every named field once (last element per
+    // name wins, as above), and one rebuild of all the lists reads the
+    // people once.
+    var swNameIndex = null,
+      swRegistryCache = null;
     // Build one canonical person object from a set of field names.
     // fieldNames maps attr -> field name (or null when the role lacks it).
     function swReadPerson(fieldNames, source) {
@@ -1812,6 +1821,21 @@
     }
     // Build the person registry from the whole form.
     function buildPersonRegistry() {
+      if (swRegistryCache) return swRegistryCache;
+      var own = !swNameIndex;
+      if (own) {
+        swNameIndex = new Map();
+        $$('[name]').forEach(function (el) {
+          swNameIndex.set(el.getAttribute('name'), el);
+        });
+      }
+      try {
+        return swBuildRegistryNow();
+      } finally {
+        if (own) swNameIndex = null;
+      }
+    }
+    function swBuildRegistryNow() {
       var people = [];
       // Testators — passport file names are UPLOAD_MAP special cases.
       // _sourceStep / _sourceScrollName let the "Take me back" button find
@@ -2000,6 +2024,14 @@
     // Appointing targets: executors, sub-executors, beneficiaries, and
     // the four guardian sections. NOT children (source only).
     function rebuildPersonDropdowns() {
+      swRegistryCache = buildPersonRegistry();
+      try {
+        swRebuildDropdownsNow();
+      } finally {
+        swRegistryCache = null;
+      }
+    }
+    function swRebuildDropdownsNow() {
       // Repeatable appointing blocks.
       var appointSpecs = [
         { db: 'executor', prefix: 'executor' },
