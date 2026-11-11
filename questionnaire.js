@@ -1,6 +1,6 @@
 !(function () {
     'use strict';
-    const SW_VERSION = 'v38',
+    const SW_VERSION = 'v39',
       SW_API = 'https://salloum-submit.salloumlawbusiness.workers.dev';
     const TOTAL_STEPS = 8,
       STEP_NAMES = { 1: 'Part 1 of 8: About You', 2: 'Part 2 of 8: Prior Wills', 3: 'Part 3 of 8: Scope of Estate', 4: 'Part 4 of 8: Executors', 5: 'Part 5 of 8: Funeral Wishes', 6: 'Part 6 of 8: Beneficiaries', 7: 'Part 7 of 8: Guardianship', 8: 'Part 8 of 8: Confirmation' };
@@ -1679,12 +1679,12 @@
         lastErr = null;
       for (var a = 1; a <= 4; a++) {
         try {
-          var fd = new FormData();
-          fd.append('file', blob, file.name);
-          fd.append('field', name);
-          cid && fd.append('case_id', cid);
-          swCase.token && fd.append('token', swCase.token);
-          var r = await fetch(SW_UPLOAD_ENDPOINT, { method: 'POST', body: fd });
+          // v39: the file itself is the request body and its details travel
+          // in headers, so the Worker streams it to storage without parsing.
+          var hdrs = { 'Content-Type': blob.type || 'application/octet-stream', 'X-Field': name, 'X-Filename': encodeURIComponent(file.name || 'document') };
+          cid && (hdrs['X-Case-Id'] = cid);
+          swCase.token && (hdrs['X-Token'] = swCase.token);
+          var r = await fetch(SW_UPLOAD_ENDPOINT, { method: 'POST', body: blob, headers: hdrs });
           var data = null;
           try {
             data = await r.json();
